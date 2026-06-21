@@ -1,7 +1,7 @@
 const SUPABASE_URL = "https://etfkwmeymzzwnyrxurfj.supabase.co";
-const SUPABASE_KEY = "sb_publishable_FJ_mCbtiiGmxpT-30Pjw3A_k7MXxCKv";
+const SUPABASE_KEY = "TU_CLAVE";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const matches = [
   { id: 1, date: "20 junio", time: "13:00", group: "F", home: "Países Bajos", away: "Suecia", homeResult: 5, awayResult: 1, locked: true },
