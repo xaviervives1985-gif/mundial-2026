@@ -20,8 +20,8 @@ const matches = [
 
   { id: 12, date: "23 junio", time: "13:00", group: "K", home: "Portugal", away: "Uzbekistán", homeResult: 5, awayResult: 0, locked: true },
   { id: 13, date: "23 junio", time: "16:00", group: "L", home: "Inglaterra", away: "Ghana", homeResult: 0, awayResult: 0, locked: true },
-  { id: 14, date: "23 junio", time: "19:00", group: "L", home: "Panamá", away: "Croacia", homeResult: null, awayResult: null, locked: true },
-  { id: 15, date: "23 junio", time: "22:00", group: "K", home: "Colombia", away: "RD Congo", homeResult: null, awayResult: null, locked: true },
+  { id: 14, date: "23 junio", time: "19:00", group: "L", home: "Panamá", away: "Croacia", homeResult: 0, awayResult: 1, locked: true },
+  { id: 15, date: "23 junio", time: "22:00", group: "K", home: "Colombia", away: "RD Congo", homeResult: 1, awayResult: 0, locked: true },
 
   { id: 16, date: "24 junio", time: "15:00", group: "B", home: "Suiza", away: "Canadá", homeResult: null, awayResult: null, locked: false },
   { id: 17, date: "24 junio", time: "15:00", group: "B", home: "Bosnia y Herzegovina", away: "Catar", homeResult: null, awayResult: null, locked: false },
