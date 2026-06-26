@@ -30,12 +30,12 @@ const matches = [
   { id: 20, date: "24 junio", time: "21:00", group: "A", home: "República Checa", away: "México", homeResult: 0, awayResult: 3, locked: true },
   { id: 21, date: "24 junio", time: "21:00", group: "A", home: "Sudáfrica", away: "República de Corea", homeResult: 1, awayResult: 0, locked: true },
 
-  { id: 22, date: "25 junio", time: "16:00", group: "E", home: "Curazao", away: "Costa de Marfil", homeResult: null, awayResult: null, locked: true },
-  { id: 23, date: "25 junio", time: "16:00", group: "E", home: "Ecuador", away: "Alemania", homeResult: null, awayResult: null, locked: true},
-  { id: 24, date: "25 junio", time: "19:00", group: "F", home: "Japón", away: "Suecia", homeResult: null, awayResult: null, locked: true },
-  { id: 25, date: "25 junio", time: "19:00", group: "F", home: "Túnez", away: "Países Bajos", homeResult: null, awayResult: null, locked: true },
-  { id: 26, date: "25 junio", time: "22:00", group: "D", home: "Turquía", away: "Estados Unidos", homeResult: null, awayResult: null, locked: true },
-  { id: 27, date: "25 junio", time: "22:00", group: "D", home: "Paraguay", away: "Australia", homeResult: null, awayResult: null, locked: true },
+  { id: 22, date: "25 junio", time: "16:00", group: "E", home: "Curazao", away: "Costa de Marfil", homeResult: 0, awayResult: 2, locked: true },
+  { id: 23, date: "25 junio", time: "16:00", group: "E", home: "Ecuador", away: "Alemania", homeResult: 2, awayResult: 1, locked: true},
+  { id: 24, date: "25 junio", time: "19:00", group: "F", home: "Japón", away: "Suecia", homeResult: 1, awayResult: 1, locked: true },
+  { id: 25, date: "25 junio", time: "19:00", group: "F", home: "Túnez", away: "Países Bajos", homeResult: 1, awayResult: 3, locked: true },
+  { id: 26, date: "25 junio", time: "22:00", group: "D", home: "Turquía", away: "Estados Unidos", homeResult: 3, awayResult: 2, locked: true },
+  { id: 27, date: "25 junio", time: "22:00", group: "D", home: "Paraguay", away: "Australia", homeResult: 0, awayResult: 0, locked: true },
 
   { id: 28, date: "26 junio", time: "15:00", group: "I", home: "Noruega", away: "Francia", homeResult: null, awayResult: null, locked: false },
   { id: 29, date: "26 junio", time: "15:00", group: "I", home: "Senegal", away: "Irak", homeResult: null, awayResult: null, locked: false },
