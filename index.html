@@ -144,6 +144,36 @@
         </div>
       </div>
 
+      <article class="panel tournament-panel">
+        <div class="tournament-panel-header">
+          <div>
+            <h3>Predicciones del torneo</h3>
+            <p>
+              Elige quién crees que será el máximo goleador y el MVP del torneo.
+            </p>
+          </div>
+        </div>
+
+        <form id="tournamentPredictionForm" class="tournament-form">
+          <div class="field">
+            <label>Máximo goleador</label>
+            <select id="topScorerSelect"></select>
+          </div>
+
+          <div class="field">
+            <label>MVP / Mejor jugador</label>
+            <select id="bestPlayerSelect"></select>
+          </div>
+
+          <button type="submit">
+            Guardar predicción del torneo
+          </button>
+        </form>
+
+        <h4>Predicciones guardadas</h4>
+        <div id="tournamentPredictionsList" class="tournament-predictions-list"></div>
+      </article>
+
       <div class="stars-layout">
         <article class="panel">
           <h3>Máximos goleadores</h3>
