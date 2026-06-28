@@ -44,12 +44,12 @@ const matches = [
   { id: 32, date: "26 junio", time: "23:00", group: "G", home: "Egipto", away: "Irán", homeResult: 1, awayResult: 1, locked: true },
   { id: 33, date: "26 junio", time: "23:00", group: "G", home: "Nueva Zelanda", away: "Bélgica", homeResult: 1, awayResult: 5, locked: true },
 
-  { id: 34, date: "27 junio", time: "17:00", group: "L", home: "Panamá", away: "Inglaterra", homeResult: null, awayResult: null, locked: false },
-  { id: 35, date: "27 junio", time: "17:00", group: "L", home: "Croacia", away: "Ghana", homeResult: null, awayResult: null, locked: false },
-  { id: 36, date: "27 junio", time: "19:30", group: "K", home: "Colombia", away: "Portugal", homeResult: null, awayResult: null, locked: false },
-  { id: 37, date: "27 junio", time: "19:30", group: "K", home: "RD Congo", away: "Uzbekistán", homeResult: null, awayResult: null, locked: false },
-  { id: 38, date: "27 junio", time: "22:00", group: "J", home: "Argelia", away: "Austria", homeResult: null, awayResult: null, locked: false },
-  { id: 39, date: "27 junio", time: "22:00", group: "J", home: "Jordania", away: "Argentina", homeResult: null, awayResult: null, locked: false }
+  { id: 34, date: "27 junio", time: "17:00", group: "L", home: "Panamá", away: "Inglaterra", homeResult: 0, awayResult: 2, locked: true },
+  { id: 35, date: "27 junio", time: "17:00", group: "L", home: "Croacia", away: "Ghana", homeResult: 2, awayResult: 1, locked: true },
+  { id: 36, date: "27 junio", time: "19:30", group: "K", home: "Colombia", away: "Portugal", homeResult: 0, awayResult: 0, locked: true },
+  { id: 37, date: "27 junio", time: "19:30", group: "K", home: "RD Congo", away: "Uzbekistán", homeResult: 3, awayResult: 1, locked: true },
+  { id: 38, date: "27 junio", time: "22:00", group: "J", home: "Argelia", away: "Austria", homeResult: 3, awayResult: 3, locked: true },
+  { id: 39, date: "27 junio", time: "22:00", group: "J", home: "Jordania", away: "Argentina", homeResult: 1, awayResult: 3, locked: true }
 ];
 
 let currentAlias = localStorage.getItem("alias") || "";
