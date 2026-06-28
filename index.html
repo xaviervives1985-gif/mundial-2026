@@ -60,6 +60,7 @@
     <nav class="tabs" aria-label="Secciones">
       <button class="tab-button active" data-tab="matchesSection">Partidos</button>
       <button class="tab-button" data-tab="leaderboardSection">Clasificación</button>
+      <button class="tab-button" data-tab="predictionsSection">Pronósticos</button>
       <button class="tab-button" data-tab="starsSection">Jugadores</button>
     </nav>
 
@@ -114,6 +115,26 @@
           <tbody id="leaderboardBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <section id="predictionsSection" class="tab-section">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Consulta visual</p>
+          <h2>Pronósticos de usuarios</h2>
+          <p class="section-note">
+            Aquí se verán los pronósticos cuando el partido esté cerrado o finalizado.
+          </p>
+        </div>
+
+        <div class="toolbar">
+          <button id="predictionsRefreshButton" class="ghost-button" type="button">
+            Actualizar pronósticos
+          </button>
+        </div>
+      </div>
+
+      <div id="predictionsList" class="predictions-list"></div>
     </section>
 
     <section id="starsSection" class="tab-section">
