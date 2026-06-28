@@ -968,4 +968,21 @@ td {
     grid-template-columns: 1fr;
   }
 }
+.tournament-panel {
+  overflow: visible;
+}
 
+.tournament-form {
+  grid-template-columns: 1fr;
+}
+
+.tournament-form select,
+.tournament-form button {
+  width: 100%;
+  max-width: 100%;
+}
+
+.tournament-form select option {
+  color: #111;
+  background: white;
+}
