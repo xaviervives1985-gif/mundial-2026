@@ -369,70 +369,82 @@ function renderMatchCard(match) {
       </div>
 
       <form class="prediction-form" data-match-id="${match.id}">
-        <div class="form-grid">
-          <div class="field">
-            <label>Resultado</label>
-            <div class="score-inputs">
-              <input
-                type="number"
-                name="home_score"
-                min="0"
-                inputmode="numeric"
-                value="${homeScoreValue}"
-                ${isOpen ? "" : "disabled"}
-              />
-              <span>-</span>
-              <input
-                type="number"
-                name="away_score"
-                min="0"
-                inputmode="numeric"
-                value="${awayScoreValue}"
-                ${isOpen ? "" : "disabled"}
-              />
+        <div class="prediction-layout">
+
+          <div class="prediction-block prediction-block-score">
+            <div class="prediction-block-title">Resultado del partido</div>
+
+            <div class="field">
+              <label>Resultado</label>
+              <div class="score-inputs">
+                <input
+                  type="number"
+                  name="home_score"
+                  min="0"
+                  inputmode="numeric"
+                  value="${homeScoreValue}"
+                  ${isOpen ? "" : "disabled"}
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="away_score"
+                  min="0"
+                  inputmode="numeric"
+                  value="${awayScoreValue}"
+                  ${isOpen ? "" : "disabled"}
+                />
+              </div>
+            </div>
+
+            <div class="check-row">
+              <label>
+                <input
+                  type="checkbox"
+                  name="predicts_extra_time"
+                  ${extraTimeChecked}
+                  ${isOpen ? "" : "disabled"}
+                />
+                Se decide en prórroga
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  name="predicts_penalties"
+                  ${penaltiesChecked}
+                  ${isOpen ? "" : "disabled"}
+                />
+                Se decide en penaltis
+              </label>
             </div>
           </div>
 
-          <div class="field">
-            <label>Ganador</label>
-            <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
-              ${teamOptions}
-            </select>
+          <div class="prediction-block prediction-block-extra">
+            <div class="prediction-block-title">Pronóstico adicional</div>
+
+            <div class="form-grid-secondary">
+              <div class="field">
+                <label>Ganador</label>
+                <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
+                  ${teamOptions}
+                </select>
+              </div>
+
+              <div class="field">
+                <label>MVP</label>
+                <select name="predicted_mvp_player_id" ${isOpen && mvpOptions ? "" : "disabled"}>
+                  ${mvpOptions || `<option value="">Sin jugadores cargados</option>`}
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Mis puntos</label>
+                <div class="prediction-points">${prediction?.points ?? 0} pts</div>
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>MVP</label>
-            <select name="predicted_mvp_player_id" ${isOpen && mvpOptions ? "" : "disabled"}>
-              ${mvpOptions || `<option value="">Sin jugadores cargados</option>`}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Mis puntos</label>
-            <div class="prediction-points">${prediction?.points ?? 0} pts</div>
-          </div>
-        </div>
-
-        <div class="check-row">
-          <label>
-            <input
-              type="checkbox"
-              name="predicts_extra_time"
-              ${extraTimeChecked}
-              ${isOpen ? "" : "disabled"}
-            />
-            Se decide en prórroga
-          </label>
-
-          <label>
-            <input
-              type="checkbox"
-              name="predicts_penalties"
-              ${penaltiesChecked}
-              ${isOpen ? "" : "disabled"}
-            />
-            Se decide en penaltis
-          </label>
         </div>
 
         <div class="form-actions">
