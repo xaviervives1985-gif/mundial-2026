@@ -23,6 +23,7 @@ const state = {
   players: [],
   predictions: [],
   leaderboard: [],
+  predictionsOverview: [],
   topScorers: [],
   bestPlayers: []
 };
@@ -36,6 +37,8 @@ const els = {
   refreshButton: document.getElementById("refreshButton"),
   matchesList: document.getElementById("matchesList"),
   leaderboardBody: document.getElementById("leaderboardBody"),
+  predictionsList: document.getElementById("predictionsList"),
+  predictionsRefreshButton: document.getElementById("predictionsRefreshButton"),
   topScorersList: document.getElementById("topScorersList"),
   bestPlayersList: document.getElementById("bestPlayersList"),
   toast: document.getElementById("toast")
@@ -56,13 +59,16 @@ function init() {
   els.aliasForm.addEventListener("submit", handleAliasSubmit);
   els.stageFilter.addEventListener("change", renderMatches);
   els.refreshButton.addEventListener("click", loadAll);
+  els.predictionsRefreshButton?.addEventListener("click", async () => {
+    await loadPredictionsOverview();
+    renderPredictionsOverview();
+  });
 
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.tab));
   });
 
   els.matchesList.addEventListener("submit", handlePredictionSubmit);
-  els.tournamentPredictionForm?.addEventListener("submit", handleTournamentPredictionSubmit);
   els.matchesList.addEventListener("change", handlePredictionChange);
 
   loadAll();
@@ -76,6 +82,10 @@ function activateTab(tabId) {
   document.querySelectorAll(".tab-section").forEach((section) => {
     section.classList.toggle("active", section.id === tabId);
   });
+
+  if (tabId === "predictionsSection") {
+    loadPredictionsOverview().then(renderPredictionsOverview);
+  }
 }
 
 async function handleAliasSubmit(event) {
@@ -93,9 +103,7 @@ async function handleAliasSubmit(event) {
   await ensureUser(alias);
   renderCurrentUser();
   await loadPredictions();
-  await loadMyTournamentPrediction();
   renderMatches();
-  renderTournamentPredictionForm();
   showToast(`Has entrado como ${alias}.`);
 }
 
@@ -104,25 +112,13 @@ function normalizeAlias(value) {
 }
 
 async function ensureUser(alias) {
-  const { data: existing, error: selectError } = await supabase
-    .from("users")
-    .select("id, alias")
-    .eq("alias", alias)
-    .maybeSingle();
+  const { error } = await supabase.rpc("ensure_user_alias", {
+    p_alias: alias
+  });
 
-  if (selectError) {
-    console.warn(selectError);
-  }
-
-  if (existing) return;
-
-  const { error } = await supabase
-    .from("users")
-    .insert({ alias });
-
-  if (error && error.code !== "23505") {
+  if (error) {
     console.error(error);
-    showToast("No se pudo crear el usuario en Supabase.");
+    showToast(error.message || "No se pudo crear o comprobar el usuario.");
   }
 }
 
@@ -137,19 +133,18 @@ async function loadAll() {
     loadPlayers(),
     loadMatches(),
     loadLeaderboard(),
+    loadPredictionsOverview(),
     loadTopScorers(),
     loadBestPlayers()
   ]);
 
   if (state.alias) {
     await loadPredictions();
-    await loadMyTournamentPrediction();
   }
 
   renderMatches();
   renderLeaderboard();
-  renderTournamentPredictionForm();
-  renderTournamentPredictionsList();
+  renderPredictionsOverview();
   renderTopScorers();
   renderBestPlayers();
 }
@@ -212,7 +207,7 @@ async function loadPredictions() {
   const { data, error } = await supabase
     .from("predictions")
     .select("*")
-    .eq("user_alias", state.alias);
+    .ilike("user_alias", state.alias);
 
   if (error) {
     console.error(error);
@@ -241,144 +236,20 @@ async function loadLeaderboard() {
 }
 
 
-async function loadTournamentPredictions() {
+async function loadPredictionsOverview() {
   const { data, error } = await supabase
-    .from("tournament_predictions_overview")
+    .from("predictions_overview")
     .select("*")
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("user_alias", { ascending: true });
 
   if (error) {
     console.error(error);
-    state.tournamentPredictions = [];
+    state.predictionsOverview = [];
     return;
   }
 
-  state.tournamentPredictions = data || [];
-}
-
-async function loadMyTournamentPrediction() {
-  if (!state.alias) {
-    state.myTournamentPrediction = null;
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from("tournament_predictions")
-    .select("*")
-    .ilike("user_alias", state.alias)
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    state.myTournamentPrediction = null;
-    return;
-  }
-
-  state.myTournamentPrediction = data || null;
-}
-
-function renderTournamentPredictionForm() {
-  if (!els.tournamentPredictionForm || !els.topScorerSelect || !els.bestPlayerSelect) return;
-
-  const options = buildAllPlayerOptions();
-
-  els.topScorerSelect.innerHTML = `<option value="">Elige máximo goleador</option>${options}`;
-  els.bestPlayerSelect.innerHTML = `<option value="">Elige MVP / mejor jugador</option>${options}`;
-
-  if (state.myTournamentPrediction?.predicted_top_scorer_id) {
-    els.topScorerSelect.value = String(state.myTournamentPrediction.predicted_top_scorer_id);
-  }
-
-  if (state.myTournamentPrediction?.predicted_best_player_id) {
-    els.bestPlayerSelect.value = String(state.myTournamentPrediction.predicted_best_player_id);
-  }
-}
-
-function buildAllPlayerOptions() {
-  return [...state.players]
-    .sort((a, b) => {
-      const teamA = a.teams?.name || "";
-      const teamB = b.teams?.name || "";
-      return `${teamA} ${a.name}`.localeCompare(`${teamB} ${b.name}`, "es");
-    })
-    .map((player) => {
-      const team = player.teams?.name || "Sin selección";
-      const flag = player.teams?.flag_emoji || "";
-      return `
-        <option value="${player.id}">
-          ${escapeHtml(flag)} ${escapeHtml(player.name)} · ${escapeHtml(team)}
-        </option>
-      `;
-    })
-    .join("");
-}
-
-async function handleTournamentPredictionSubmit(event) {
-  event.preventDefault();
-
-  if (!state.alias) {
-    showToast("Primero escribe tu alias.");
-    return;
-  }
-
-  const payload = {
-    p_user_alias: state.alias,
-    p_predicted_top_scorer_id: numberOrNull(els.topScorerSelect.value),
-    p_predicted_best_player_id: numberOrNull(els.bestPlayerSelect.value)
-  };
-
-  const { error } = await supabase.rpc("save_tournament_prediction", payload);
-
-  if (error) {
-    console.error(error);
-    showToast(error.message || "No se pudo guardar la predicción del torneo.");
-    return;
-  }
-
-  await loadMyTournamentPrediction();
-  await loadTournamentPredictions();
-  renderTournamentPredictionForm();
-  renderTournamentPredictionsList();
-  showToast("Predicción del torneo guardada.");
-}
-
-function renderTournamentPredictionsList() {
-  if (!els.tournamentPredictionsList) return;
-
-  if (!state.tournamentPredictions.length) {
-    els.tournamentPredictionsList.innerHTML = `
-      <div class="empty">
-        Todavía no hay predicciones del torneo guardadas.
-      </div>
-    `;
-    return;
-  }
-
-  els.tournamentPredictionsList.innerHTML = state.tournamentPredictions
-    .map((row) => `
-      <div class="tournament-prediction-card">
-        <div class="tournament-user">${escapeHtml(row.user_alias)}</div>
-
-        <div class="tournament-pick">
-          <span>Máximo goleador</span>
-          <strong>
-            ${escapeHtml(row.predicted_top_scorer_flag || "")}
-            ${escapeHtml(row.predicted_top_scorer || "Sin elegir")}
-          </strong>
-          <small>${escapeHtml(row.predicted_top_scorer_team || "")}</small>
-        </div>
-
-        <div class="tournament-pick">
-          <span>MVP del torneo</span>
-          <strong>
-            ${escapeHtml(row.predicted_best_player_flag || "")}
-            ${escapeHtml(row.predicted_best_player || "Sin elegir")}
-          </strong>
-          <small>${escapeHtml(row.predicted_best_player_team || "")}</small>
-        </div>
-      </div>
-    `)
-    .join("");
+  state.predictionsOverview = data || [];
 }
 
 async function loadTopScorers() {
@@ -448,7 +319,10 @@ function renderMatchCard(match) {
   const isOpen = match.status === "open";
   const scoreText = formatRealScore(match);
   const teamOptions = buildWinnerOptions(match, prediction);
-  const mvpOptions = buildMvpOptions(match, prediction);
+  const homeScoreValue = prediction?.home_score ?? "";
+  const awayScoreValue = prediction?.away_score ?? "";
+  const extraTimeChecked = prediction?.predicts_extra_time ? "checked" : "";
+  const penaltiesChecked = prediction?.predicts_penalties ? "checked" : "";
 
   return `
     <article class="match-card">
@@ -483,75 +357,80 @@ function renderMatchCard(match) {
       </div>
 
       <form class="prediction-form" data-match-id="${match.id}">
-        <div class="form-grid">
-          <div class="field">
-            <label>Resultado</label>
-            <div class="score-inputs">
-              <input
-                type="number"
-                name="home_score"
-                min="0"
-                inputmode="numeric"
-                value="${prediction?.home_score ?? ""}"
-                ${isOpen ? "" : "disabled"}
-              />
-              <span>-</span>
-              <input
-                type="number"
-                name="away_score"
-                min="0"
-                inputmode="numeric"
-                value="${prediction?.away_score ?? ""}"
-                ${isOpen ? "" : "disabled"}
-              />
+        <div class="prediction-layout">
+
+          <div class="prediction-block prediction-block-score">
+            <div class="prediction-block-title">Resultado del partido</div>
+
+            <div class="field">
+              <label>Resultado</label>
+              <div class="score-inputs">
+                <input
+                  type="number"
+                  name="home_score"
+                  min="0"
+                  inputmode="numeric"
+                  value="${homeScoreValue}"
+                  ${isOpen ? "" : "disabled"}
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  name="away_score"
+                  min="0"
+                  inputmode="numeric"
+                  value="${awayScoreValue}"
+                  ${isOpen ? "" : "disabled"}
+                />
+              </div>
+            </div>
+
+            <div class="check-row">
+              <label>
+                <input
+                  type="checkbox"
+                  name="predicts_extra_time"
+                  ${extraTimeChecked}
+                  ${isOpen ? "" : "disabled"}
+                />
+                Se decide en prórroga
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  name="predicts_penalties"
+                  ${penaltiesChecked}
+                  ${isOpen ? "" : "disabled"}
+                />
+                Se decide en penaltis
+              </label>
             </div>
           </div>
 
-          <div class="field">
-            <label>Ganador</label>
-            <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
-              ${teamOptions}
-            </select>
+          <div class="prediction-block prediction-block-extra">
+            <div class="prediction-block-title">Pronóstico adicional</div>
+
+            <div class="form-grid-secondary form-grid-no-mvp">
+              <div class="field">
+                <label>Ganador</label>
+                <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
+                  ${teamOptions}
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Mis puntos</label>
+                <div class="prediction-points">${prediction?.points ?? 0} pts</div>
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>MVP</label>
-            <select name="predicted_mvp_player_id" ${isOpen && mvpOptions ? "" : "disabled"}>
-              ${mvpOptions || `<option value="">Sin jugadores cargados</option>`}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Mis puntos</label>
-            <div class="prediction-points">${prediction?.points ?? 0} pts</div>
-          </div>
-        </div>
-
-        <div class="check-row">
-          <label>
-            <input
-              type="checkbox"
-              name="predicts_extra_time"
-              ${prediction?.predicts_extra_time ? "checked" : ""}
-              ${isOpen ? "" : "disabled"}
-            />
-            Se decide en prórroga
-          </label>
-
-          <label>
-            <input
-              type="checkbox"
-              name="predicts_penalties"
-              ${prediction?.predicts_penalties ? "checked" : ""}
-              ${isOpen ? "" : "disabled"}
-            />
-            Se decide en penaltis
-          </label>
         </div>
 
         <div class="form-actions">
           <small>
-            Puntuación máxima por partido: 7 puntos.
+            Puntuación máxima por partido: 6 puntos.
           </small>
           <button type="submit" ${isOpen ? "" : "disabled"}>
             Guardar pronóstico
@@ -664,34 +543,42 @@ async function handlePredictionSubmit(event) {
     predicted_winner_team_id: numberOrNull(formData.get("predicted_winner_team_id")),
     predicts_extra_time: formData.get("predicts_extra_time") === "on",
     predicts_penalties: formData.get("predicts_penalties") === "on",
-    predicted_mvp_player_id: numberOrNull(formData.get("predicted_mvp_player_id"))
+    predicted_mvp_player_id: null
   };
+
+  if (payload.home_score === null || payload.away_score === null) {
+    showToast("Pon el resultado completo antes de guardar.");
+    return;
+  }
+
+  // Si no hay empate, el ganador se calcula automáticamente según el resultado.
+  if (payload.home_score > payload.away_score) {
+    payload.predicted_winner_team_id = match.home_team?.id || null;
+  } else if (payload.away_score > payload.home_score) {
+    payload.predicted_winner_team_id = match.away_team?.id || null;
+  } else if (!payload.predicted_winner_team_id) {
+    showToast("Si pones empate, elige quién pasa.");
+    return;
+  }
 
   if (payload.predicts_penalties) {
     payload.predicts_extra_time = true;
   }
 
-  const existing = state.predictions.find((item) => Number(item.match_id) === matchId);
+  const { error } = await supabase.rpc("save_prediction", {
+    p_user_alias: payload.user_alias,
+    p_match_id: payload.match_id,
+    p_home_score: payload.home_score,
+    p_away_score: payload.away_score,
+    p_predicted_winner_team_id: payload.predicted_winner_team_id,
+    p_predicts_extra_time: payload.predicts_extra_time,
+    p_predicts_penalties: payload.predicts_penalties,
+    p_predicted_mvp_player_id: null
+  });
 
-  let response;
-  if (existing) {
-    response = await supabase
-      .from("predictions")
-      .update(payload)
-      .eq("id", existing.id)
-      .select()
-      .single();
-  } else {
-    response = await supabase
-      .from("predictions")
-      .insert(payload)
-      .select()
-      .single();
-  }
-
-  if (response.error) {
-    console.error(response.error);
-    showToast("No se pudo guardar el pronóstico.");
+  if (error) {
+    console.error(error);
+    showToast(error.message || "No se pudo guardar el pronóstico.");
     return;
   }
 
@@ -714,7 +601,7 @@ function renderLeaderboard() {
   if (!state.leaderboard.length) {
     els.leaderboardBody.innerHTML = `
       <tr>
-        <td colspan="8">Todavía no hay usuarios en la clasificación.</td>
+        <td colspan="7">Todavía no hay usuarios en la clasificación.</td>
       </tr>
     `;
     return;
@@ -730,10 +617,120 @@ function renderLeaderboard() {
         <td>${row.exact_scores_hit}</td>
         <td>${row.extra_time_hit}</td>
         <td>${row.penalties_hit}</td>
-        <td>${row.mvp_hit}</td>
       </tr>
     `)
     .join("");
+}
+
+
+function renderPredictionsOverview() {
+  if (!els.predictionsList) return;
+
+  if (!state.predictionsOverview.length) {
+    els.predictionsList.innerHTML = `
+      <div class="empty">
+        Todavía no hay pronósticos visibles. Recuerda: solo aparecen cuando el partido está cerrado o finalizado.
+      </div>
+    `;
+    return;
+  }
+
+  const grouped = groupBy(state.predictionsOverview, "match_id");
+
+  els.predictionsList.innerHTML = Object.values(grouped)
+    .map(renderPredictionMatchCard)
+    .join("");
+}
+
+function renderPredictionMatchCard(rows) {
+  const first = rows[0];
+  const homeFlag = first.home_flag || "🌐";
+  const awayFlag = first.away_flag || "🌐";
+
+  return `
+    <article class="prediction-match-card">
+      <div class="prediction-match-header">
+        <div>
+          <div class="prediction-match-number">
+            ${first.match_number ? `Partido ${first.match_number}` : "Partido"}
+            · ${stageLabels[first.stage] || first.stage}
+          </div>
+          <h3>
+            <span>${escapeHtml(homeFlag)} ${escapeHtml(first.home_team)}</span>
+            <span class="prediction-versus">vs</span>
+            <span>${escapeHtml(awayFlag)} ${escapeHtml(first.away_team)}</span>
+          </h3>
+          <div class="match-date">${formatDate(first.kickoff_at)}</div>
+        </div>
+
+        <span class="status status-${first.match_status}">
+          ${statusLabels[first.match_status] || first.match_status}
+        </span>
+      </div>
+
+      <div class="prediction-users-grid">
+        ${rows.map(renderPredictionUserCard).join("")}
+      </div>
+    </article>
+  `;
+}
+
+
+function getPredictionWinnerText(row) {
+  if (row.predicted_winner) {
+    return `${row.predicted_winner_flag || ""} ${row.predicted_winner}`;
+  }
+
+  const homeScore = Number(row.home_score);
+  const awayScore = Number(row.away_score);
+
+  if (!Number.isNaN(homeScore) && !Number.isNaN(awayScore)) {
+    if (homeScore > awayScore) {
+      return `${row.home_flag || ""} ${row.home_team}`;
+    }
+
+    if (awayScore > homeScore) {
+      return `${row.away_flag || ""} ${row.away_team}`;
+    }
+
+    return "Empate: falta elegir quién pasa";
+  }
+
+  return "Sin ganador";
+}
+
+function renderPredictionUserCard(row) {
+  const winner = getPredictionWinnerText(row);
+
+  const extra = row.predicts_penalties
+    ? "Penaltis"
+    : row.predicts_extra_time
+      ? "Prórroga"
+      : "90 minutos";
+
+  return `
+    <div class="prediction-user-card">
+      <div class="prediction-user-top">
+        <strong>${escapeHtml(row.user_alias)}</strong>
+        <span>${row.points ?? 0} pts</span>
+      </div>
+
+      <div class="prediction-score">
+        ${row.home_score ?? "-"} <span>-</span> ${row.away_score ?? "-"}
+      </div>
+
+      <div class="prediction-detail">
+        <span>Ganador</span>
+        <strong>${escapeHtml(winner)}</strong>
+      </div>
+
+      <div class="prediction-detail">
+        <span>Cómo se decide</span>
+        <strong>${escapeHtml(extra)}</strong>
+      </div>
+
+    </div>
+  `;
 }
 
 function renderTopScorers() {
@@ -817,3 +814,249 @@ function showToast(message) {
     els.toast.classList.add("hidden");
   }, 3200);
 }
+
+/* =====================================================
+   ARREGLO: rellenar desplegables de Predicciones del torneo
+   Máximo goleador + MVP del torneo
+   ===================================================== */
+
+function tournamentPatchAlias() {
+  return (
+    localStorage.getItem("wc_alias") ||
+    document.getElementById("aliasInput")?.value ||
+    ""
+  ).trim().toLowerCase();
+}
+
+function tournamentPatchNumberOrNull(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function tournamentPatchEscape(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function tournamentPatchToast(message) {
+  try {
+    if (typeof showToast === "function") {
+      showToast(message);
+      return;
+    }
+  } catch (_) {}
+
+  const toastEl = document.getElementById("toast");
+  if (toastEl) {
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 2500);
+    return;
+  }
+
+  console.log(message);
+}
+
+async function tournamentPatchLoadPlayers() {
+  let { data, error } = await supabase
+    .from("players")
+    .select("id, name, team_id, teams:team_id(id, name, flag_emoji)")
+    .order("name", { ascending: true });
+
+  // Plan B por si Supabase no acepta la relación teams:team_id
+  if (error) {
+    console.warn("No se pudo cargar players con teams, probando sin equipos:", error);
+
+    const fallback = await supabase
+      .from("players")
+      .select("id, name, team_id")
+      .order("name", { ascending: true });
+
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    console.error(error);
+    tournamentPatchToast("No se pudieron cargar los jugadores.");
+    return [];
+  }
+
+  return data || [];
+}
+
+function tournamentPatchBuildOptions(players) {
+  if (!players.length) {
+    return `<option value="">No hay jugadores cargados</option>`;
+  }
+
+  return `<option value="">Elige jugador</option>` + players
+    .sort((a, b) => {
+      const teamA = a.teams?.name || "";
+      const teamB = b.teams?.name || "";
+      return `${teamA} ${a.name}`.localeCompare(`${teamB} ${b.name}`, "es");
+    })
+    .map((player) => {
+      const flag = player.teams?.flag_emoji || "";
+      const team = player.teams?.name || "";
+      const label = team
+        ? `${flag} ${player.name} · ${team}`
+        : player.name;
+
+      return `<option value="${player.id}">${tournamentPatchEscape(label)}</option>`;
+    })
+    .join("");
+}
+
+async function tournamentPatchLoadMine() {
+  const alias = tournamentPatchAlias();
+  if (!alias) return null;
+
+  const { data, error } = await supabase
+    .from("tournament_predictions")
+    .select("*")
+    .ilike("user_alias", alias)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(error);
+    return null;
+  }
+
+  return data || null;
+}
+
+async function tournamentPatchRenderOverview() {
+  const list = document.getElementById("tournamentPredictionsList");
+  if (!list) return;
+
+  const { data, error } = await supabase
+    .from("tournament_predictions_overview")
+    .select("*")
+    .order("user_alias", { ascending: true });
+
+  if (error) {
+    console.warn(error);
+    list.innerHTML = `<div class="empty">No se pudieron cargar las predicciones guardadas.</div>`;
+    return;
+  }
+
+  const rows = data || [];
+
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty">Todavía no hay predicciones del torneo guardadas.</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((row) => `
+    <div class="tournament-prediction-card">
+      <div class="tournament-user">${tournamentPatchEscape(row.user_alias)}</div>
+
+      <div class="tournament-pick">
+        <span>Máximo goleador</span>
+        <strong>
+          ${tournamentPatchEscape(row.predicted_top_scorer_flag || "")}
+          ${tournamentPatchEscape(row.predicted_top_scorer || "Sin elegir")}
+        </strong>
+        <small>${tournamentPatchEscape(row.predicted_top_scorer_team || "")}</small>
+      </div>
+
+      <div class="tournament-pick">
+        <span>MVP del torneo</span>
+        <strong>
+          ${tournamentPatchEscape(row.predicted_best_player_flag || "")}
+          ${tournamentPatchEscape(row.predicted_best_player || "Sin elegir")}
+        </strong>
+        <small>${tournamentPatchEscape(row.predicted_best_player_team || "")}</small>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function tournamentPatchInit() {
+  const form = document.getElementById("tournamentPredictionForm");
+  const topSelect = document.getElementById("topScorerSelect");
+  const bestSelect = document.getElementById("bestPlayerSelect");
+
+  if (!form || !topSelect || !bestSelect) return;
+  if (form.dataset.tournamentPatchReady === "1") return;
+
+  form.dataset.tournamentPatchReady = "1";
+
+  topSelect.innerHTML = `<option value="">Cargando jugadores...</option>`;
+  bestSelect.innerHTML = `<option value="">Cargando jugadores...</option>`;
+
+  const players = await tournamentPatchLoadPlayers();
+  const options = tournamentPatchBuildOptions(players);
+
+  topSelect.innerHTML = options.replace("Elige jugador", "Elige máximo goleador");
+  bestSelect.innerHTML = options.replace("Elige jugador", "Elige MVP / mejor jugador");
+
+  const mine = await tournamentPatchLoadMine();
+
+  if (mine?.predicted_top_scorer_id) {
+    topSelect.value = String(mine.predicted_top_scorer_id);
+  }
+
+  if (mine?.predicted_best_player_id) {
+    bestSelect.value = String(mine.predicted_best_player_id);
+  }
+
+  await tournamentPatchRenderOverview();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const alias = tournamentPatchAlias();
+
+    if (!alias) {
+      tournamentPatchToast("Primero escribe tu alias arriba.");
+      return;
+    }
+
+    const payload = {
+      p_user_alias: alias,
+      p_predicted_top_scorer_id: tournamentPatchNumberOrNull(topSelect.value),
+      p_predicted_best_player_id: tournamentPatchNumberOrNull(bestSelect.value)
+    };
+
+    if (!payload.p_predicted_top_scorer_id && !payload.p_predicted_best_player_id) {
+      tournamentPatchToast("Elige al menos un jugador.");
+      return;
+    }
+
+    const { error } = await supabase.rpc("save_tournament_prediction", payload);
+
+    if (error) {
+      console.error(error);
+      tournamentPatchToast(error.message || "No se pudo guardar la predicción.");
+      return;
+    }
+
+    tournamentPatchToast("Predicción del torneo guardada.");
+    await tournamentPatchRenderOverview();
+  });
+
+  document.getElementById("aliasForm")?.addEventListener("submit", () => {
+    setTimeout(async () => {
+      const updatedMine = await tournamentPatchLoadMine();
+
+      if (updatedMine?.predicted_top_scorer_id) {
+        topSelect.value = String(updatedMine.predicted_top_scorer_id);
+      }
+
+      if (updatedMine?.predicted_best_player_id) {
+        bestSelect.value = String(updatedMine.predicted_best_player_id);
+      }
+
+      await tournamentPatchRenderOverview();
+    }, 400);
+  });
+}
+
+setTimeout(tournamentPatchInit, 0);
+document.addEventListener("DOMContentLoaded", tournamentPatchInit);
