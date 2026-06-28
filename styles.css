@@ -738,3 +738,56 @@ td {
   }
 }
 
+
+/* ===== Corrección visual formulario pronósticos ===== */
+/* Separa claramente Resultado, Ganador, MVP y Mis puntos */
+.form-grid {
+  grid-template-columns: 250px 330px minmax(280px, 1fr) 130px !important;
+  gap: 28px !important;
+  align-items: end !important;
+}
+
+.form-grid .field {
+  min-width: 0 !important;
+}
+
+.score-inputs {
+  width: 250px !important;
+  grid-template-columns: 105px 20px 105px !important;
+  gap: 10px !important;
+}
+
+.score-inputs input {
+  width: 105px !important;
+  min-width: 105px !important;
+  text-align: center !important;
+  font-weight: 900 !important;
+}
+
+.form-grid select {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+@media (max-width: 1120px) {
+  .form-grid {
+    grid-template-columns: 250px minmax(260px, 1fr) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .score-inputs {
+    width: 100% !important;
+    grid-template-columns: 1fr 20px 1fr !important;
+  }
+
+  .score-inputs input {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
