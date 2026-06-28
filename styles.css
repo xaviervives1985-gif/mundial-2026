@@ -877,5 +877,19 @@ td {
     grid-template-columns: 1fr;
   }
 }
+/* ===== QUITAR MVP DE LOS PRONÓSTICOS ===== */
+/* Añadir al final de styles.css */
+
+.form-grid-no-mvp {
+  grid-template-columns: minmax(260px, 1fr) 130px !important;
+  max-width: 620px;
+}
+
+@media (max-width: 760px) {
+  .form-grid-no-mvp {
+    grid-template-columns: 1fr !important;
+    max-width: none;
+  }
+}
 
 

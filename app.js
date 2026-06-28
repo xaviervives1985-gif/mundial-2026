@@ -319,7 +319,6 @@ function renderMatchCard(match) {
   const isOpen = match.status === "open";
   const scoreText = formatRealScore(match);
   const teamOptions = buildWinnerOptions(match, prediction);
-  const mvpOptions = buildMvpOptions(match, prediction);
   const homeScoreValue = prediction?.home_score ?? "";
   const awayScoreValue = prediction?.away_score ?? "";
   const extraTimeChecked = prediction?.predicts_extra_time ? "checked" : "";
@@ -412,18 +411,11 @@ function renderMatchCard(match) {
           <div class="prediction-block prediction-block-extra">
             <div class="prediction-block-title">Pronóstico adicional</div>
 
-            <div class="form-grid-secondary">
+            <div class="form-grid-secondary form-grid-no-mvp">
               <div class="field">
                 <label>Ganador</label>
                 <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
                   ${teamOptions}
-                </select>
-              </div>
-
-              <div class="field">
-                <label>MVP</label>
-                <select name="predicted_mvp_player_id" ${isOpen && mvpOptions ? "" : "disabled"}>
-                  ${mvpOptions || `<option value="">Sin jugadores cargados</option>`}
                 </select>
               </div>
 
@@ -438,7 +430,7 @@ function renderMatchCard(match) {
 
         <div class="form-actions">
           <small>
-            Puntuación máxima por partido: 7 puntos.
+            Puntuación máxima por partido: 6 puntos.
           </small>
           <button type="submit" ${isOpen ? "" : "disabled"}>
             Guardar pronóstico
@@ -551,7 +543,7 @@ async function handlePredictionSubmit(event) {
     predicted_winner_team_id: numberOrNull(formData.get("predicted_winner_team_id")),
     predicts_extra_time: formData.get("predicts_extra_time") === "on",
     predicts_penalties: formData.get("predicts_penalties") === "on",
-    predicted_mvp_player_id: numberOrNull(formData.get("predicted_mvp_player_id"))
+    predicted_mvp_player_id: null
   };
 
   if (payload.predicts_penalties) {
@@ -566,7 +558,7 @@ async function handlePredictionSubmit(event) {
     p_predicted_winner_team_id: payload.predicted_winner_team_id,
     p_predicts_extra_time: payload.predicts_extra_time,
     p_predicts_penalties: payload.predicts_penalties,
-    p_predicted_mvp_player_id: payload.predicted_mvp_player_id
+    p_predicted_mvp_player_id: null
   });
 
   if (error) {
@@ -594,7 +586,7 @@ function renderLeaderboard() {
   if (!state.leaderboard.length) {
     els.leaderboardBody.innerHTML = `
       <tr>
-        <td colspan="8">Todavía no hay usuarios en la clasificación.</td>
+        <td colspan="7">Todavía no hay usuarios en la clasificación.</td>
       </tr>
     `;
     return;
@@ -610,7 +602,6 @@ function renderLeaderboard() {
         <td>${row.exact_scores_hit}</td>
         <td>${row.extra_time_hit}</td>
         <td>${row.penalties_hit}</td>
-        <td>${row.mvp_hit}</td>
       </tr>
     `)
     .join("");
@@ -674,10 +665,6 @@ function renderPredictionUserCard(row) {
     ? `${row.predicted_winner_flag || ""} ${row.predicted_winner}`
     : "Sin ganador";
 
-  const mvp = row.predicted_mvp
-    ? `${row.predicted_mvp_team_flag || ""} ${row.predicted_mvp}`
-    : "Sin MVP";
-
   const extra = row.predicts_penalties
     ? "Penaltis"
     : row.predicts_extra_time
@@ -705,10 +692,6 @@ function renderPredictionUserCard(row) {
         <strong>${escapeHtml(extra)}</strong>
       </div>
 
-      <div class="prediction-detail">
-        <span>MVP</span>
-        <strong>${escapeHtml(mvp)}</strong>
-      </div>
     </div>
   `;
 }
@@ -794,4 +777,3 @@ function showToast(message) {
     els.toast.classList.add("hidden");
   }, 3200);
 }
-
