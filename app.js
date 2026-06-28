@@ -112,25 +112,13 @@ function normalizeAlias(value) {
 }
 
 async function ensureUser(alias) {
-  const { data: existing, error: selectError } = await supabase
-    .from("users")
-    .select("id, alias")
-    .eq("alias", alias)
-    .maybeSingle();
+  const { error } = await supabase.rpc("ensure_user_alias", {
+    p_alias: alias
+  });
 
-  if (selectError) {
-    console.warn(selectError);
-  }
-
-  if (existing) return;
-
-  const { error } = await supabase
-    .from("users")
-    .insert({ alias });
-
-  if (error && error.code !== "23505") {
+  if (error) {
     console.error(error);
-    showToast("No se pudo crear el usuario en Supabase.");
+    showToast(error.message || "No se pudo crear o comprobar el usuario.");
   }
 }
 
@@ -156,6 +144,7 @@ async function loadAll() {
 
   renderMatches();
   renderLeaderboard();
+  renderPredictionsOverview();
   renderTopScorers();
   renderBestPlayers();
 }
@@ -218,7 +207,7 @@ async function loadPredictions() {
   const { data, error } = await supabase
     .from("predictions")
     .select("*")
-    .eq("user_alias", state.alias);
+    .ilike("user_alias", state.alias);
 
   if (error) {
     console.error(error);
@@ -569,27 +558,20 @@ async function handlePredictionSubmit(event) {
     payload.predicts_extra_time = true;
   }
 
-  const existing = state.predictions.find((item) => Number(item.match_id) === matchId);
+  const { error } = await supabase.rpc("save_prediction", {
+    p_user_alias: payload.user_alias,
+    p_match_id: payload.match_id,
+    p_home_score: payload.home_score,
+    p_away_score: payload.away_score,
+    p_predicted_winner_team_id: payload.predicted_winner_team_id,
+    p_predicts_extra_time: payload.predicts_extra_time,
+    p_predicts_penalties: payload.predicts_penalties,
+    p_predicted_mvp_player_id: payload.predicted_mvp_player_id
+  });
 
-  let response;
-  if (existing) {
-    response = await supabase
-      .from("predictions")
-      .update(payload)
-      .eq("id", existing.id)
-      .select()
-      .single();
-  } else {
-    response = await supabase
-      .from("predictions")
-      .insert(payload)
-      .select()
-      .single();
-  }
-
-  if (response.error) {
-    console.error(response.error);
-    showToast("No se pudo guardar el pronóstico.");
+  if (error) {
+    console.error(error);
+    showToast(error.message || "No se pudo guardar el pronóstico.");
     return;
   }
 
@@ -812,3 +794,4 @@ function showToast(message) {
     els.toast.classList.add("hidden");
   }, 3200);
 }
+
