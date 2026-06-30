@@ -252,10 +252,13 @@ async function loadPredictionsOverview() {
   state.predictionsOverview = data || [];
 }
 
-async function loadTopScorers() {
+aasync function loadTopScorers() {
   const { data, error } = await supabase
-    .from("top_scorers")
-    .select("*")
+    .from("players")
+    .select("id, name, goals, teams:team_id(id, name, code, flag_emoji)")
+    .gt("goals", 0)
+    .order("goals", { ascending: false })
+    .order("name", { ascending: true })
     .limit(10);
 
   if (error) {
@@ -264,7 +267,13 @@ async function loadTopScorers() {
     return;
   }
 
-  state.topScorers = data || [];
+  state.topScorers = (data || []).map((player) => ({
+    id: player.id,
+    player_name: player.name,
+    team_name: player.teams?.name || "Sin selección",
+    flag_emoji: player.teams?.flag_emoji || "",
+    goals: player.goals || 0
+  }));
 }
 
 async function loadBestPlayers() {
