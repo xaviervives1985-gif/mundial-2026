@@ -62,6 +62,7 @@ function init() {
   els.predictionsRefreshButton?.addEventListener("click", async () => {
     await loadPredictionsOverview();
     renderPredictionsOverview();
+    renderQuarterBracket();
   });
 
   document.querySelectorAll(".tab-button").forEach((button) => {
@@ -70,6 +71,11 @@ function init() {
 
   els.matchesList.addEventListener("submit", handlePredictionSubmit);
   els.matchesList.addEventListener("change", handlePredictionChange);
+
+  // Al entrar en la web, mostrar directamente Cuartos de final.
+  if (els.stageFilter) {
+    els.stageFilter.value = "quarter_final";
+  }
 
   loadAll();
 }
@@ -104,6 +110,7 @@ async function handleAliasSubmit(event) {
   renderCurrentUser();
   await loadPredictions();
   renderMatches();
+  renderQuarterBracket();
   showToast(`Has entrado como ${alias}.`);
 }
 
@@ -145,6 +152,7 @@ async function loadAll() {
   renderMatches();
   renderLeaderboard();
   renderPredictionsOverview();
+  renderQuarterBracket();
   renderTopScorers();
   renderBestPlayers();
 }
@@ -584,8 +592,11 @@ async function handlePredictionSubmit(event) {
 
   await loadPredictions();
   await loadLeaderboard();
+  await loadPredictionsOverview();
   renderMatches();
   renderLeaderboard();
+  renderPredictionsOverview();
+  renderQuarterBracket();
   showToast("Pronóstico guardado.");
 }
 
@@ -1061,71 +1072,205 @@ async function tournamentPatchInit() {
 setTimeout(tournamentPatchInit, 0);
 document.addEventListener("DOMContentLoaded", tournamentPatchInit);
 
-const quarterFinalMatches = [
+
+/* =====================================================
+   CUADRO VISUAL DE CUARTOS + PRONÓSTICOS DE USUARIOS
+   ===================================================== */
+
+const quarterFallbackMatches = [
   {
+    match_number: 97,
     side: "left",
     number: "P97",
     date: "09/07/2026",
     time: "22:00",
-    home: { flag: "🇫🇷", code: "FRA", name: "Francia" },
-    away: { flag: "🇲🇦", code: "MAR", name: "Marruecos" }
+    home_team: { flag_emoji: "🇫🇷", code: "FRA", name: "Francia" },
+    away_team: { flag_emoji: "🇲🇦", code: "MAR", name: "Marruecos" },
+    home_score: null,
+    away_score: null,
+    status: "open"
   },
   {
+    match_number: 98,
     side: "left",
     number: "P98",
     date: "10/07/2026",
     time: "21:00",
-    home: { flag: "🇪🇸", code: "ESP", name: "España" },
-    away: { flag: "🇧🇪", code: "BEL", name: "Bélgica" }
+    home_team: { flag_emoji: "🇪🇸", code: "ESP", name: "España" },
+    away_team: { flag_emoji: "🇧🇪", code: "BEL", name: "Bélgica" },
+    home_score: null,
+    away_score: null,
+    status: "open"
   },
   {
+    match_number: 99,
     side: "right",
     number: "P99",
     date: "11/07/2026",
     time: "23:00",
-    home: { flag: "🇳🇴", code: "NOR", name: "Noruega" },
-    away: { flag: "🏴", code: "ENG", name: "Inglaterra" }
+    home_team: { flag_emoji: "🇳🇴", code: "NOR", name: "Noruega" },
+    away_team: { flag_emoji: "🏴", code: "ENG", name: "Inglaterra" },
+    home_score: null,
+    away_score: null,
+    status: "open"
   },
   {
+    match_number: 100,
     side: "right",
     number: "P100",
     date: "12/07/2026",
     time: "03:00",
-    home: { flag: "🇦🇷", code: "ARG", name: "Argentina" },
-    away: { flag: "🇨🇭", code: "SUI", name: "Suiza" }
+    home_team: { flag_emoji: "🇦🇷", code: "ARG", name: "Argentina" },
+    away_team: { flag_emoji: "🇨🇭", code: "SUI", name: "Suiza" },
+    home_score: null,
+    away_score: null,
+    status: "open"
   }
 ];
 
+const quarterMatchNumbers = [97, 98, 99, 100];
+
+function getQuarterMatches() {
+  const dbMatches = state.matches
+    .filter((match) => quarterMatchNumbers.includes(Number(match.match_number)))
+    .sort((a, b) => Number(a.match_number) - Number(b.match_number));
+
+  if (!dbMatches.length) {
+    return quarterFallbackMatches;
+  }
+
+  return quarterFallbackMatches.map((fallback) => {
+    const dbMatch = dbMatches.find((item) => Number(item.match_number) === Number(fallback.match_number));
+    return dbMatch || fallback;
+  });
+}
+
+function getQuarterSide(match) {
+  return Number(match.match_number) === 97 || Number(match.match_number) === 98
+    ? "left"
+    : "right";
+}
+
+function getQuarterNumber(match) {
+  return `P${match.match_number}`;
+}
+
+function getQuarterDate(match) {
+  if (match.kickoff_at) {
+    const date = new Date(match.kickoff_at);
+
+    return {
+      date: new Intl.DateTimeFormat("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }).format(date),
+      time: new Intl.DateTimeFormat("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date)
+    };
+  }
+
+  return {
+    date: match.date || "Fecha por definir",
+    time: match.time || ""
+  };
+}
+
+function renderQuarterTeam(team, placeholder) {
+  const display = getTeamDisplay(team, placeholder);
+
+  return `
+    <div class="team-row">
+      <div class="team-info">
+        <span class="team-flag">${escapeHtml(display.flag_emoji || "🌐")}</span>
+        <div>
+          <div class="team-name">${escapeHtml(display.name)}</div>
+          <div class="team-code">${escapeHtml(display.code || "")}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function formatQuarterScore(match) {
+  if (match.home_score === null || match.home_score === undefined || match.away_score === null || match.away_score === undefined) {
+    return "VS";
+  }
+
+  const score = `${match.home_score} - ${match.away_score}`;
+
+  if (match.went_penalties) {
+    return `${score} · Penaltis`;
+  }
+
+  if (match.went_extra_time) {
+    return `${score} · Prórroga`;
+  }
+
+  return score;
+}
+
+function getQuarterPredictionRows(matchNumber) {
+  return state.predictionsOverview
+    .filter((row) => Number(row.match_number) === Number(matchNumber))
+    .sort((a, b) => String(a.user_alias || "").localeCompare(String(b.user_alias || ""), "es"));
+}
+
+function renderQuarterPredictionRows(matchNumber) {
+  const rows = getQuarterPredictionRows(matchNumber);
+
+  if (!rows.length) {
+    return `
+      <div class="quarter-user-predictions">
+        <div class="quarter-predictions-title">Pronósticos usuarios</div>
+        <p class="no-quarter-predictions">
+          Todavía no hay pronósticos visibles. Aparecerán cuando el partido esté cerrado o finalizado.
+        </p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="quarter-user-predictions">
+      <div class="quarter-predictions-title">Pronósticos usuarios</div>
+      <div class="quarter-predictions-list">
+        ${rows.map((row) => `
+          <div class="quarter-prediction-row">
+            <span class="prediction-user">${escapeHtml(row.user_alias)}</span>
+            <span class="prediction-score">
+              ${row.home_score ?? "-"} - ${row.away_score ?? "-"}
+            </span>
+            <span class="prediction-points">
+              ${row.points ?? 0} pts
+            </span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function createQuarterMatchCard(match) {
+  const when = getQuarterDate(match);
+  const matchNumber = Number(match.match_number);
+
   return `
     <article class="bracket-match">
       <div class="match-top">
-        <span class="match-number">${match.number}</span>
-        <span>${match.date}</span>
-        <span>${match.time}</span>
+        <span class="match-number">${escapeHtml(getQuarterNumber(match))}</span>
+        <span>${escapeHtml(when.date)}</span>
+        <span>${escapeHtml(when.time)}</span>
       </div>
 
-      <div class="team-row">
-        <div class="team-info">
-          <span class="team-flag">${match.home.flag}</span>
-          <div>
-            <div class="team-name">${match.home.name}</div>
-            <div class="team-code">${match.home.code}</div>
-          </div>
-        </div>
-      </div>
+      ${renderQuarterTeam(match.home_team, match.home_placeholder)}
 
-      <div class="vs-pill"><span>VS</span></div>
+      <div class="vs-pill"><span>${escapeHtml(formatQuarterScore(match))}</span></div>
 
-      <div class="team-row">
-        <div class="team-info">
-          <span class="team-flag">${match.away.flag}</span>
-          <div>
-            <div class="team-name">${match.away.name}</div>
-            <div class="team-code">${match.away.code}</div>
-          </div>
-        </div>
-      </div>
+      ${renderQuarterTeam(match.away_team, match.away_placeholder)}
+
+      ${renderQuarterPredictionRows(matchNumber)}
     </article>
   `;
 }
@@ -1134,13 +1279,15 @@ function renderQuarterBracket() {
   const container = document.getElementById("quarterBracket");
   if (!container) return;
 
-  const leftMatches = quarterFinalMatches
-    .filter(match => match.side === "left")
+  const quarterMatches = getQuarterMatches();
+
+  const leftMatches = quarterMatches
+    .filter((match) => getQuarterSide(match) === "left")
     .map(createQuarterMatchCard)
     .join("");
 
-  const rightMatches = quarterFinalMatches
-    .filter(match => match.side === "right")
+  const rightMatches = quarterMatches
+    .filter((match) => getQuarterSide(match) === "right")
     .map(createQuarterMatchCard)
     .join("");
 
@@ -1179,12 +1326,12 @@ function renderQuarterBracket() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  renderQuarterBracket();
+  const stageFilter = document.getElementById("stageFilter");
 
-  const roundFilter = document.getElementById("roundFilter");
-
-  if (roundFilter) {
-    roundFilter.value = "Cuartos de final";
-    roundFilter.dispatchEvent(new Event("change"));
+  if (stageFilter) {
+    stageFilter.value = "quarter_final";
+    stageFilter.dispatchEvent(new Event("change"));
   }
+
+  renderQuarterBracket();
 });
