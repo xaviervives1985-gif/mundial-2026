@@ -1178,13 +1178,32 @@ function getQuarterDate(match) {
   };
 }
 
+function getQuarterFlagClass(code) {
+  const normalizedCode = String(code || "tbd").toLowerCase();
+
+  const map = {
+    fra: "flag-fra",
+    mar: "flag-mar",
+    esp: "flag-esp",
+    nor: "flag-nor",
+    eng: "flag-eng",
+    arg: "flag-arg",
+    sui: "flag-sui",
+    bel: "flag-bel"
+  };
+
+  return map[normalizedCode] || "flag-tbd";
+}
+
 function renderQuarterTeam(team, placeholder) {
   const display = getTeamDisplay(team, placeholder);
+  const flagClass = getQuarterFlagClass(display.code);
 
   return `
     <div class="team-row">
       <div class="team-info">
-        <span class="team-flag">${escapeHtml(display.flag_emoji || "🌐")}</span>
+        <span class="team-flag ${flagClass}" aria-hidden="true"></span>
+
         <div>
           <div class="team-name">${escapeHtml(display.name)}</div>
           <div class="team-code">${escapeHtml(display.code || "")}</div>
@@ -1335,3 +1354,84 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderQuarterBracket();
 });
+
+function injectQuarterFlagStyles() {
+  if (document.getElementById("quarterFlagStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "quarterFlagStyles";
+
+  style.textContent = `
+    .team-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .team-flag {
+      width: 54px;
+      height: 42px;
+      flex: 0 0 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.32);
+      box-shadow:
+        inset 0 0 18px rgba(255,255,255,0.16),
+        0 8px 18px rgba(0,0,0,0.24);
+      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+    }
+
+    .flag-fra {
+      background: linear-gradient(90deg, #123a8c 0 33%, #ffffff 33% 66%, #e3344f 66% 100%);
+    }
+
+    .flag-mar {
+      background:
+        radial-gradient(circle at center, rgba(0,120,65,0.95) 0 16%, transparent 17%),
+        linear-gradient(135deg, #c8102e, #ef3340);
+    }
+
+    .flag-esp {
+      background: linear-gradient(180deg, #c60b1e 0 25%, #ffc400 25% 75%, #c60b1e 75% 100%);
+    }
+
+    .flag-nor {
+      background:
+        linear-gradient(90deg, transparent 0 28%, #ffffff 28% 36%, #00205b 36% 48%, #ffffff 48% 56%, transparent 56%),
+        linear-gradient(180deg, transparent 0 34%, #ffffff 34% 43%, #00205b 43% 57%, #ffffff 57% 66%, transparent 66%),
+        #ba0c2f;
+    }
+
+    .flag-eng {
+      background:
+        linear-gradient(90deg, transparent 0 42%, #ce1124 42% 58%, transparent 58%),
+        linear-gradient(180deg, transparent 0 38%, #ce1124 38% 62%, transparent 62%),
+        #ffffff;
+    }
+
+    .flag-arg {
+      background: linear-gradient(180deg, #75aadb 0 33%, #ffffff 33% 66%, #75aadb 66% 100%);
+    }
+
+    .flag-sui {
+      background:
+        linear-gradient(90deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
+        linear-gradient(180deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
+        #d52b1e;
+    }
+
+    .flag-bel {
+      background: linear-gradient(90deg, #000000 0 33%, #ffd90c 33% 66%, #ef3340 66% 100%);
+    }
+
+    .flag-tbd {
+      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+injectQuarterFlagStyles();
