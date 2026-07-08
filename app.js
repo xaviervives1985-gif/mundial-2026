@@ -1060,3 +1060,131 @@ async function tournamentPatchInit() {
 
 setTimeout(tournamentPatchInit, 0);
 document.addEventListener("DOMContentLoaded", tournamentPatchInit);
+
+const quarterFinalMatches = [
+  {
+    side: "left",
+    number: "P97",
+    date: "09/07/2026",
+    time: "22:00",
+    home: { flag: "🇫🇷", code: "FRA", name: "Francia" },
+    away: { flag: "🇲🇦", code: "MAR", name: "Marruecos" }
+  },
+  {
+    side: "left",
+    number: "P98",
+    date: "10/07/2026",
+    time: "21:00",
+    home: { flag: "🇪🇸", code: "ESP", name: "España" },
+    away: { flag: "🇧🇪", code: "BEL", name: "Bélgica" }
+  },
+  {
+    side: "right",
+    number: "P99",
+    date: "11/07/2026",
+    time: "23:00",
+    home: { flag: "🇳🇴", code: "NOR", name: "Noruega" },
+    away: { flag: "🏴", code: "ENG", name: "Inglaterra" }
+  },
+  {
+    side: "right",
+    number: "P100",
+    date: "12/07/2026",
+    time: "03:00",
+    home: { flag: "🇦🇷", code: "ARG", name: "Argentina" },
+    away: { flag: "🇨🇭", code: "SUI", name: "Suiza" }
+  }
+];
+
+function createQuarterMatchCard(match) {
+  return `
+    <article class="bracket-match">
+      <div class="match-top">
+        <span class="match-number">${match.number}</span>
+        <span>${match.date}</span>
+        <span>${match.time}</span>
+      </div>
+
+      <div class="team-row">
+        <div class="team-info">
+          <span class="team-flag">${match.home.flag}</span>
+          <div>
+            <div class="team-name">${match.home.name}</div>
+            <div class="team-code">${match.home.code}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vs-pill"><span>VS</span></div>
+
+      <div class="team-row">
+        <div class="team-info">
+          <span class="team-flag">${match.away.flag}</span>
+          <div>
+            <div class="team-name">${match.away.name}</div>
+            <div class="team-code">${match.away.code}</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderQuarterBracket() {
+  const container = document.getElementById("quarterBracket");
+  if (!container) return;
+
+  const leftMatches = quarterFinalMatches
+    .filter(match => match.side === "left")
+    .map(createQuarterMatchCard)
+    .join("");
+
+  const rightMatches = quarterFinalMatches
+    .filter(match => match.side === "right")
+    .map(createQuarterMatchCard)
+    .join("");
+
+  container.innerHTML = `
+    <div class="bracket-side bracket-left">
+      ${leftMatches}
+    </div>
+
+    <div class="bracket-center">
+      <div class="semi-card">
+        <h3>Semifinal 1</h3>
+        <div class="placeholder-team">Ganador P97</div>
+        <div class="placeholder-team">Ganador P98</div>
+        <small>14/07/2026 · 21:00</small>
+      </div>
+
+      <div class="final-card">
+        <h3>Final</h3>
+        <div class="placeholder-team">Ganador P101</div>
+        <div class="placeholder-team">Ganador P102</div>
+        <small>19/07/2026 · 21:00</small>
+      </div>
+
+      <div class="semi-card">
+        <h3>Semifinal 2</h3>
+        <div class="placeholder-team">Ganador P99</div>
+        <div class="placeholder-team">Ganador P100</div>
+        <small>15/07/2026 · 21:00</small>
+      </div>
+    </div>
+
+    <div class="bracket-side bracket-right">
+      ${rightMatches}
+    </div>
+  `;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderQuarterBracket();
+
+  const roundFilter = document.getElementById("roundFilter");
+
+  if (roundFilter) {
+    roundFilter.value = "Cuartos de final";
+    roundFilter.dispatchEvent(new Event("change"));
+  }
+});
