@@ -1436,13 +1436,13 @@ function injectQuarterFlagStyles() {
 
 injectQuarterFlagStyles();
 
-//* =====================================================
-   CLASIFICACIÓN DEFINITIVA
-   General + filtro por fase + duplicados + desglose completo
+/* =====================================================
+   CLASIFICACIÓN LIMPIA
+   Filtro por fase + usuarios duplicados + desglose completo
    ===================================================== */
 
-(function finalLeaderboardPatch() {
-  function aliasKey(alias) {
+(function cleanLeaderboardPatch() {
+  function normalizeAlias(alias) {
     return String(alias || "Sin usuario")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -1452,7 +1452,7 @@ injectQuarterFlagStyles();
       .replace(/\s+/g, " ");
   }
 
-  function niceAlias(alias) {
+  function formatAlias(alias) {
     const clean = String(alias || "Sin usuario")
       .replace(/\u00A0/g, " ")
       .trim()
@@ -1470,15 +1470,7 @@ injectQuarterFlagStyles();
       .join(" ");
   }
 
-  function cleanText(value) {
-    return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toLowerCase();
-  }
-
-  function ensureLeaderboardFilter() {
+  function ensureLeaderboardStageFilter() {
     const leaderboardSection = document.getElementById("leaderboardSection");
     if (!leaderboardSection) return;
 
@@ -1507,8 +1499,8 @@ injectQuarterFlagStyles();
       filter = document.getElementById("leaderboardStageFilter");
     }
 
-    if (filter && filter.dataset.finalLeaderboardReady !== "1") {
-      filter.dataset.finalLeaderboardReady = "1";
+    if (filter && filter.dataset.cleanLeaderboardReady !== "1") {
+      filter.dataset.cleanLeaderboardReady = "1";
       filter.addEventListener("change", () => {
         renderLeaderboard();
       });
@@ -1536,83 +1528,42 @@ injectQuarterFlagStyles();
     `;
   }
 
-  function getRealMatch(row) {
-    return state.matches.find((match) => {
-      if (row.match_id && Number(match.id) === Number(row.match_id)) return true;
-      if (row.match_number && Number(match.match_number) === Number(row.match_number)) return true;
-      return false;
-    });
-  }
-
-  function getRealWinnerName(match) {
-    if (!match || !match.winner_team_id) return "";
-
-    if (match.home_team?.id && Number(match.home_team.id) === Number(match.winner_team_id)) {
-      return match.home_team.name;
-    }
-
-    if (match.away_team?.id && Number(match.away_team.id) === Number(match.winner_team_id)) {
-      return match.away_team.name;
-    }
-
-    return "";
-  }
-
-  function getPredictedWinnerName(row) {
-    if (row.predicted_winner) return row.predicted_winner;
-
-    const homeScore = Number(row.home_score);
-    const awayScore = Number(row.away_score);
-
-    if (Number.isFinite(homeScore) && Number.isFinite(awayScore)) {
-      if (homeScore > awayScore) return row.home_team || "";
-      if (awayScore > homeScore) return row.away_team || "";
-    }
-
-    return "";
-  }
-
-  function buildMatchStatsFromOverview(row) {
-    const match = getRealMatch(row);
-
-    const predictionHome = Number(row.home_score);
-    const predictionAway = Number(row.away_score);
-
-    const realHome = Number(match?.home_score);
-    const realAway = Number(match?.away_score);
+  function calculateStats(prediction, match) {
+    const predictionHome = Number(prediction.home_score);
+    const predictionAway = Number(prediction.away_score);
+    const realHome = Number(match.home_score);
+    const realAway = Number(match.away_score);
 
     const hasRealScore =
-      match &&
       match.home_score !== null &&
       match.home_score !== undefined &&
       match.away_score !== null &&
       match.away_score !== undefined;
 
-    const predictedWinner = getPredictedWinnerName(row);
-    const realWinner = getRealWinnerName(match);
-
     const winnerHit =
-      Boolean(predictedWinner) &&
-      Boolean(realWinner) &&
-      cleanText(predictedWinner) === cleanText(realWinner);
+      prediction.predicted_winner_team_id &&
+      match.winner_team_id &&
+      Number(prediction.predicted_winner_team_id) === Number(match.winner_team_id);
 
     const exactScoreHit =
       hasRealScore &&
-      Number.isFinite(predictionHome) &&
-      Number.isFinite(predictionAway) &&
+      prediction.home_score !== null &&
+      prediction.home_score !== undefined &&
+      prediction.away_score !== null &&
+      prediction.away_score !== undefined &&
       predictionHome === realHome &&
       predictionAway === realAway;
 
     const extraTimeHit =
-      Boolean(row.predicts_extra_time) &&
-      Boolean(match?.went_extra_time);
+      Boolean(prediction.predicts_extra_time) &&
+      Boolean(match.went_extra_time);
 
     const penaltiesHit =
-      Boolean(row.predicts_penalties) &&
-      Boolean(match?.went_penalties);
+      Boolean(prediction.predicts_penalties) &&
+      Boolean(match.went_penalties);
 
     return {
-      points: Number(row.points || 0),
+      points: Number(prediction.points || 0),
       winnerHit,
       exactScoreHit,
       extraTimeHit,
@@ -1620,78 +1571,75 @@ injectQuarterFlagStyles();
     };
   }
 
-  function getMatchesCountByAlias(filter) {
-    const rows = filter === "all"
-      ? state.predictionsOverview
-      : state.predictionsOverview.filter((row) => row.stage === filter);
+  async function buildLeaderboard(filter) {
+    const { data: predictions, error: predictionsError } = await supabase
+      .from("predictions")
+      .select(`
+        id,
+        user_alias,
+        match_id,
+        home_score,
+        away_score,
+        predicted_winner_team_id,
+        predicts_extra_time,
+        predicts_penalties,
+        points
+      `)
+      .range(0, 9999);
 
-    const map = new Map();
+    if (predictionsError) {
+      console.error(predictionsError);
+      return [];
+    }
 
-    rows.forEach((row, index) => {
-      const key = aliasKey(row.user_alias);
-      const matchKey = String(row.match_id || row.match_number || `match-${index}`);
+    let matchesQuery = supabase
+      .from("matches")
+      .select(`
+        id,
+        stage,
+        status,
+        home_score,
+        away_score,
+        winner_team_id,
+        went_extra_time,
+        went_penalties
+      `)
+      .in("status", ["locked", "finished"])
+      .range(0, 9999);
 
-      if (!map.has(key)) {
-        map.set(key, new Set());
-      }
+    if (filter !== "all") {
+      matchesQuery = matchesQuery.eq("stage", filter);
+    }
 
-      map.get(key).add(matchKey);
-    });
+    const { data: matches, error: matchesError } = await matchesQuery;
 
-    return map;
-  }
+    if (matchesError) {
+      console.error(matchesError);
+      return [];
+    }
 
-  function buildGeneralLeaderboard() {
-    const usersMap = new Map();
-    const matchesCountMap = getMatchesCountByAlias("all");
-
-    state.leaderboard.forEach((row) => {
-      const key = aliasKey(row.alias);
-
-      if (!usersMap.has(key)) {
-        usersMap.set(key, {
-          alias: niceAlias(row.alias),
-          matches: matchesCountMap.get(key)?.size || 0,
-          winnersHit: 0,
-          exactScoresHit: 0,
-          extraTimeHit: 0,
-          penaltiesHit: 0,
-          totalPoints: 0
-        });
-      }
-
-      const user = usersMap.get(key);
-
-      user.winnersHit += Number(row.winners_hit || 0);
-      user.exactScoresHit += Number(row.exact_scores_hit || 0);
-      user.extraTimeHit += Number(row.extra_time_hit || 0);
-      user.penaltiesHit += Number(row.penalties_hit || 0);
-      user.totalPoints += Number(row.total_points || 0);
-    });
-
-    return Array.from(usersMap.values());
-  }
-
-  function buildStageLeaderboard(filter) {
-    const rows = filter === "all"
-      ? state.predictionsOverview
-      : state.predictionsOverview.filter((row) => row.stage === filter);
+    const matchesMap = new Map(
+      (matches || []).map((match) => [String(match.id), match])
+    );
 
     const usersMap = new Map();
 
-    rows.forEach((row, index) => {
-      const key = aliasKey(row.user_alias);
-      const matchKey = String(row.match_id || row.match_number || `match-${index}`);
-      const stats = buildMatchStatsFromOverview(row);
+    (predictions || []).forEach((prediction) => {
+      const match = matchesMap.get(String(prediction.match_id));
+      if (!match) return;
 
-      if (!usersMap.has(key)) {
-        usersMap.set(key, {
-          alias: niceAlias(row.user_alias),
+      const aliasKey = normalizeAlias(prediction.user_alias);
+      const matchKey = String(prediction.match_id);
+      const stats = calculateStats(prediction, match);
+
+      if (!usersMap.has(aliasKey)) {
+        usersMap.set(aliasKey, {
+          alias: formatAlias(prediction.user_alias),
           matches: new Map()
         });
       }
 
-      const user = usersMap.get(key);
+      const user = usersMap.get(aliasKey);
       const previous = user.matches.get(matchKey);
 
       const currentValue =
@@ -1729,27 +1677,28 @@ injectQuarterFlagStyles();
     });
   }
 
-  renderLeaderboard = function () {
-    ensureLeaderboardFilter();
+  renderLeaderboard = async function () {
+    ensureLeaderboardStageFilter();
     updateLeaderboardHeader();
 
     const tbody = document.getElementById("leaderboardBody");
     if (!tbody) return;
 
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8">Cargando clasificación...</td>
+      </tr>
+    `;
+
     const filter = document.getElementById("leaderboardStageFilter")?.value || "all";
 
-    let leaderboard;
-
-    if (filter === "all" && state.leaderboard.length) {
-      leaderboard = buildGeneralLeaderboard();
-    } else {
-      leaderboard = buildStageLeaderboard(filter);
-    }
+    const leaderboard = await buildLeaderboard(filter);
 
     leaderboard.sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
       if (b.winnersHit !== a.winnersHit) return b.winnersHit - a.winnersHit;
       if (b.exactScoresHit !== a.exactScoresHit) return b.exactScoresHit - a.exactScoresHit;
+      if (b.extraTimeHit !== a.extraTimeHit) return b.extraTimeHit - a.extraTimeHit;
       if (b.penaltiesHit !== a.penaltiesHit) return b.penaltiesHit - a.penaltiesHit;
       return b.matches - a.matches;
     });
@@ -1780,12 +1729,14 @@ injectQuarterFlagStyles();
   };
 
   document.addEventListener("DOMContentLoaded", () => {
-    ensureLeaderboardFilter();
-    setTimeout(renderLeaderboard, 1000);
+    ensureLeaderboardStageFilter();
+    setTimeout(() => {
+      renderLeaderboard();
+    }, 1000);
   });
 
   setTimeout(() => {
-    ensureLeaderboardFilter();
+    ensureLeaderboardStageFilter();
     renderLeaderboard();
   }, 1500);
 })();
