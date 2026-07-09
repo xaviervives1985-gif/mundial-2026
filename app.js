@@ -1435,3 +1435,152 @@ function injectQuarterFlagStyles() {
 }
 
 injectQuarterFlagStyles();
+
+/* =====================================================
+   FILTRO DE CLASIFICACIÓN POR FASE
+   General / Grupos / Dieciseisavos / Octavos / etc.
+   ===================================================== */
+
+(function initLeaderboardStageFilterPatch() {
+  function ensureLeaderboardStageFilter() {
+    const leaderboardSection = document.getElementById("leaderboardSection");
+    if (!leaderboardSection) return;
+
+    let filter = document.getElementById("leaderboardStageFilter");
+
+    if (!filter) {
+      const sectionHeader = leaderboardSection.querySelector(".section-header");
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "toolbar";
+
+      toolbar.innerHTML = `
+        <select id="leaderboardStageFilter" aria-label="Filtrar clasificación por fase">
+          <option value="all">General</option>
+          <option value="group">Fase de grupos</option>
+          <option value="round_32">Dieciseisavos</option>
+          <option value="round_16">Octavos</option>
+          <option value="quarter_final">Cuartos</option>
+          <option value="semi_final">Semifinales</option>
+          <option value="third_place">Tercer puesto</option>
+          <option value="final">Final</option>
+        </select>
+      `;
+
+      if (sectionHeader) {
+        sectionHeader.appendChild(toolbar);
+      }
+
+      filter = document.getElementById("leaderboardStageFilter");
+    }
+
+    if (filter && filter.dataset.ready !== "1") {
+      filter.dataset.ready = "1";
+      filter.addEventListener("change", () => {
+        renderLeaderboard();
+      });
+    }
+  }
+
+  function updateLeaderboardTableHeader() {
+    const table = document.getElementById("leaderboardBody")?.closest("table");
+    if (!table) return;
+
+    const thead = table.querySelector("thead");
+    if (!thead) return;
+
+    thead.innerHTML = `
+      <tr>
+        <th>#</th>
+        <th>Usuario</th>
+        <th>Partidos</th>
+        <th>Aciertos</th>
+        <th>Puntos</th>
+      </tr>
+    `;
+  }
+
+  function buildLeaderboardByStage() {
+    const filter = document.getElementById("leaderboardStageFilter")?.value || "all";
+
+    const rows = filter === "all"
+      ? state.predictionsOverview
+      : state.predictionsOverview.filter((row) => row.stage === filter);
+
+    const usersMap = new Map();
+
+    rows.forEach((row) => {
+      const alias = row.user_alias || "Sin usuario";
+      const points = Number(row.points || 0);
+
+      if (!usersMap.has(alias)) {
+        usersMap.set(alias, {
+          alias,
+          matches: 0,
+          hits: 0,
+          totalPoints: 0
+        });
+      }
+
+      const user = usersMap.get(alias);
+
+      user.matches += 1;
+
+      if (points > 0) {
+        user.hits += 1;
+      }
+
+      user.totalPoints += points;
+    });
+
+    return Array.from(usersMap.values()).sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+
+      if (b.hits !== a.hits) {
+        return b.hits - a.hits;
+      }
+
+      return b.matches - a.matches;
+    });
+  }
+
+  renderLeaderboard = function () {
+    ensureLeaderboardStageFilter();
+    updateLeaderboardTableHeader();
+
+    const tbody = document.getElementById("leaderboardBody");
+    if (!tbody) return;
+
+    const leaderboard = buildLeaderboardByStage();
+
+    if (!leaderboard.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5">Todavía no hay puntos en esta fase.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = leaderboard
+      .map((user, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${escapeHtml(user.alias)}</strong></td>
+          <td>${user.matches}</td>
+          <td>${user.hits}</td>
+          <td><strong>${user.totalPoints}</strong></td>
+        </tr>
+      `)
+      .join("");
+  };
+
+  ensureLeaderboardStageFilter();
+
+  document.addEventListener("DOMContentLoaded", () => {
+    ensureLeaderboardStageFilter();
+    renderLeaderboard();
+  });
+})();
