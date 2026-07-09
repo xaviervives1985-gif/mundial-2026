@@ -1627,3 +1627,364 @@ injectQuarterFlagStyles();
     renderLeaderboard();
   }, 800);
 })();
+
+/* =====================================================
+   CLASIFICACIÓN FINAL:
+   General + filtro por fase + duplicados + desglose completo
+   Usuario / Partidos / Ganadores / Resultados / Prórroga / Penaltis / Puntos
+   ===================================================== */
+
+(function leaderboardFullStatsPatch() {
+  function normalizeAliasKey(alias) {
+    return String(alias || "Sin usuario")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\u00A0/g, " ")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  function formatAlias(alias) {
+    const clean = String(alias || "Sin usuario")
+      .replace(/\u00A0/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+    if (!clean) return "Sin usuario";
+
+    return clean
+      .split(" ")
+      .map((word) => {
+        if (word.includes("_")) return word.toLowerCase();
+        if (/\d/.test(word)) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+
+  function ensureLeaderboardStageFilter() {
+    const leaderboardSection = document.getElementById("leaderboardSection");
+    if (!leaderboardSection) return;
+
+    let filter = document.getElementById("leaderboardStageFilter");
+
+    if (!filter) {
+      const sectionHeader = leaderboardSection.querySelector(".section-header");
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "toolbar";
+
+      toolbar.innerHTML = `
+        <select id="leaderboardStageFilter" aria-label="Filtrar clasificación por fase">
+          <option value="all">General</option>
+          <option value="group">Fase de grupos</option>
+          <option value="round_32">Dieciseisavos</option>
+          <option value="round_16">Octavos</option>
+          <option value="quarter_final">Cuartos</option>
+          <option value="semi_final">Semifinales</option>
+          <option value="third_place">Tercer puesto</option>
+          <option value="final">Final</option>
+        </select>
+      `;
+
+      if (sectionHeader) {
+        sectionHeader.appendChild(toolbar);
+      }
+
+      filter = document.getElementById("leaderboardStageFilter");
+    }
+
+    if (filter && filter.dataset.fullStatsReady !== "1") {
+      filter.dataset.fullStatsReady = "1";
+      filter.addEventListener("change", () => {
+        renderLeaderboard();
+      });
+    }
+  }
+
+  function updateLeaderboardHeader() {
+    const tbody = document.getElementById("leaderboardBody");
+    const table = tbody?.closest("table");
+    const thead = table?.querySelector("thead");
+
+    if (!thead) return;
+
+    thead.innerHTML = `
+      <tr>
+        <th>#</th>
+        <th>Usuario</th>
+        <th>Partidos</th>
+        <th>Ganadores</th>
+        <th>Resultados</th>
+        <th>Prórroga</th>
+        <th>Penaltis</th>
+        <th>Puntos</th>
+      </tr>
+    `;
+  }
+
+  function predictionHitStats(prediction, match) {
+    const predictionHome = Number(prediction.home_score);
+    const predictionAway = Number(prediction.away_score);
+    const realHome = Number(match.home_score);
+    const realAway = Number(match.away_score);
+
+    const hasRealScore =
+      match.home_score !== null &&
+      match.home_score !== undefined &&
+      match.away_score !== null &&
+      match.away_score !== undefined;
+
+    const winnerHit =
+      match.winner_team_id &&
+      prediction.predicted_winner_team_id &&
+      Number(prediction.predicted_winner_team_id) === Number(match.winner_team_id);
+
+    const exactScoreHit =
+      hasRealScore &&
+      prediction.home_score !== null &&
+      prediction.home_score !== undefined &&
+      prediction.away_score !== null &&
+      prediction.away_score !== undefined &&
+      predictionHome === realHome &&
+      predictionAway === realAway;
+
+    const extraTimeHit =
+      Boolean(prediction.predicts_extra_time) &&
+      Boolean(match.went_extra_time);
+
+    const penaltiesHit =
+      Boolean(prediction.predicts_penalties) &&
+      Boolean(match.went_penalties);
+
+    return {
+      points: Number(prediction.points || 0),
+      winnerHit,
+      exactScoreHit,
+      extraTimeHit,
+      penaltiesHit
+    };
+  }
+
+  async function buildStatsFromPredictions(filter) {
+    const { data: predictions, error: predictionsError } = await supabase
+      .from("predictions")
+      .select(`
+        id,
+        user_alias,
+        match_id,
+        home_score,
+        away_score,
+        predicted_winner_team_id,
+        predicts_extra_time,
+        predicts_penalties,
+        points
+      `)
+      .range(0, 9999);
+
+    if (predictionsError) {
+      console.error(predictionsError);
+      return [];
+    }
+
+    let matchesQuery = supabase
+      .from("matches")
+      .select(`
+        id,
+        stage,
+        status,
+        home_score,
+        away_score,
+        winner_team_id,
+        went_extra_time,
+        went_penalties
+      `)
+      .in("status", ["locked", "finished"])
+      .range(0, 9999);
+
+    if (filter !== "all") {
+      matchesQuery = matchesQuery.eq("stage", filter);
+    }
+
+    const { data: matches, error: matchesError } = await matchesQuery;
+
+    if (matchesError) {
+      console.error(matchesError);
+      return [];
+    }
+
+    const matchesMap = new Map(
+      (matches || []).map((match) => [String(match.id), match])
+    );
+
+    const usersMap = new Map();
+
+    (predictions || []).forEach((prediction, index) => {
+      const match = matchesMap.get(String(prediction.match_id));
+      if (!match) return;
+
+      const aliasKey = normalizeAliasKey(prediction.user_alias);
+      const aliasDisplay = formatAlias(prediction.user_alias);
+      const matchKey = String(prediction.match_id || `match-${index}`);
+      const stats = predictionHitStats(prediction, match);
+
+      if (!usersMap.has(aliasKey)) {
+        usersMap.set(aliasKey, {
+          alias: aliasDisplay,
+          matches: new Map()
+        });
+      }
+
+      const user = usersMap.get(aliasKey);
+      const previous = user.matches.get(matchKey);
+
+      const currentValue =
+        stats.points * 100 +
+        Number(stats.winnerHit) +
+        Number(stats.exactScoreHit) +
+        Number(stats.extraTimeHit) +
+        Number(stats.penaltiesHit);
+
+      const previousValue = previous
+        ? previous.points * 100 +
+          Number(previous.winnerHit) +
+          Number(previous.exactScoreHit) +
+          Number(previous.extraTimeHit) +
+          Number(previous.penaltiesHit)
+        : -1;
+
+      if (!previous || currentValue > previousValue) {
+        user.matches.set(matchKey, stats);
+      }
+    });
+
+    return Array.from(usersMap.values()).map((user) => {
+      const rows = Array.from(user.matches.values());
+
+      return {
+        alias: user.alias,
+        aliasKey: normalizeAliasKey(user.alias),
+        matches: rows.length,
+        winnersHit: rows.filter((row) => row.winnerHit).length,
+        exactScoresHit: rows.filter((row) => row.exactScoreHit).length,
+        extraTimeHit: rows.filter((row) => row.extraTimeHit).length,
+        penaltiesHit: rows.filter((row) => row.penaltiesHit).length,
+        totalPoints: rows.reduce((sum, row) => sum + row.points, 0)
+      };
+    });
+  }
+
+  function mergeGeneralWithLeaderboardView(statsRows) {
+    const statsMap = new Map(
+      statsRows.map((row) => [normalizeAliasKey(row.alias), row])
+    );
+
+    const usersMap = new Map();
+
+    (state.leaderboard || []).forEach((row) => {
+      const aliasKey = normalizeAliasKey(row.alias);
+      const existingStats = statsMap.get(aliasKey);
+
+      if (!usersMap.has(aliasKey)) {
+        usersMap.set(aliasKey, {
+          alias: formatAlias(row.alias),
+          matches: existingStats?.matches || 0,
+          winnersHit: 0,
+          exactScoresHit: 0,
+          extraTimeHit: 0,
+          penaltiesHit: 0,
+          totalPoints: 0
+        });
+      }
+
+      const user = usersMap.get(aliasKey);
+
+      user.winnersHit += Number(row.winners_hit || 0);
+      user.exactScoresHit += Number(row.exact_scores_hit || 0);
+      user.extraTimeHit += Number(row.extra_time_hit || 0);
+      user.penaltiesHit += Number(row.penalties_hit || 0);
+      user.totalPoints += Number(row.total_points || 0);
+    });
+
+    statsRows.forEach((row) => {
+      const aliasKey = normalizeAliasKey(row.alias);
+
+      if (!usersMap.has(aliasKey)) {
+        usersMap.set(aliasKey, row);
+      } else {
+        const user = usersMap.get(aliasKey);
+        user.matches = Math.max(user.matches || 0, row.matches || 0);
+      }
+    });
+
+    return Array.from(usersMap.values());
+  }
+
+  window.renderLeaderboard = async function renderLeaderboardFullStats() {
+    ensureLeaderboardStageFilter();
+    updateLeaderboardHeader();
+
+    const tbody = document.getElementById("leaderboardBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8">Cargando clasificación...</td>
+      </tr>
+    `;
+
+    const filter = document.getElementById("leaderboardStageFilter")?.value || "all";
+
+    let leaderboard = await buildStatsFromPredictions(filter);
+
+    if (filter === "all") {
+      if (!state.leaderboard.length && typeof loadLeaderboard === "function") {
+        await loadLeaderboard();
+      }
+
+      leaderboard = mergeGeneralWithLeaderboardView(leaderboard);
+    }
+
+    leaderboard.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.winnersHit !== a.winnersHit) return b.winnersHit - a.winnersHit;
+      if (b.exactScoresHit !== a.exactScoresHit) return b.exactScoresHit - a.exactScoresHit;
+      return b.matches - a.matches;
+    });
+
+    if (!leaderboard.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8">Todavía no hay puntos en esta fase.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = leaderboard
+      .map((user, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${escapeHtml(user.alias)}</strong></td>
+          <td>${user.matches}</td>
+          <td>${user.winnersHit}</td>
+          <td>${user.exactScoresHit}</td>
+          <td>${user.extraTimeHit}</td>
+          <td>${user.penaltiesHit}</td>
+          <td><strong>${user.totalPoints}</strong></td>
+        </tr>
+      `)
+      .join("");
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    ensureLeaderboardStageFilter();
+    renderLeaderboard();
+  });
+
+  setTimeout(() => {
+    ensureLeaderboardStageFilter();
+    renderLeaderboard();
+  }, 800);
+})();
