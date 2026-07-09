@@ -1437,11 +1437,39 @@ function injectQuarterFlagStyles() {
 injectQuarterFlagStyles();
 
 /* =====================================================
-   FILTRO DE CLASIFICACIÓN POR FASE
-   General / Grupos / Dieciseisavos / Octavos / etc.
+   CLASIFICACIÓN POR FASE + USUARIOS DUPLICADOS
+   Une mirna/Mirna, daniejo/Daniejo, espacios raros, etc.
    ===================================================== */
 
-(function initLeaderboardStageFilterPatch() {
+(function leaderboardCleanPatch() {
+  function normalizeAliasForLeaderboard(alias) {
+    return String(alias || "Sin usuario")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\u00A0/g, " ")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  function formatAliasForLeaderboard(alias) {
+    const clean = String(alias || "Sin usuario")
+      .replace(/\u00A0/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+    if (!clean) return "Sin usuario";
+
+    return clean
+      .split(" ")
+      .map((word) => {
+        if (word.includes("_")) return word.toLowerCase();
+        if (/\d/.test(word)) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+
   function ensureLeaderboardStageFilter() {
     const leaderboardSection = document.getElementById("leaderboardSection");
     if (!leaderboardSection) return;
@@ -1474,19 +1502,19 @@ injectQuarterFlagStyles();
       filter = document.getElementById("leaderboardStageFilter");
     }
 
-    if (filter && filter.dataset.ready !== "1") {
-      filter.dataset.ready = "1";
+    if (filter && filter.dataset.cleanLeaderboardReady !== "1") {
+      filter.dataset.cleanLeaderboardReady = "1";
       filter.addEventListener("change", () => {
         renderLeaderboard();
       });
     }
   }
 
-  function updateLeaderboardTableHeader() {
-    const table = document.getElementById("leaderboardBody")?.closest("table");
-    if (!table) return;
+  function updateLeaderboardHeader() {
+    const tbody = document.getElementById("leaderboardBody");
+    const table = tbody?.closest("table");
+    const thead = table?.querySelector("thead");
 
-    const thead = table.querySelector("thead");
     if (!thead) return;
 
     thead.innerHTML = `
@@ -1500,7 +1528,13 @@ injectQuarterFlagStyles();
     `;
   }
 
-  function buildLeaderboardByStage() {
+  renderLeaderboard = function () {
+    ensureLeaderboardStageFilter();
+    updateLeaderboardHeader();
+
+    const tbody = document.getElementById("leaderboardBody");
+    if (!tbody) return;
+
     const filter = document.getElementById("leaderboardStageFilter")?.value || "all";
 
     const rows = filter === "all"
@@ -1509,51 +1543,57 @@ injectQuarterFlagStyles();
 
     const usersMap = new Map();
 
-    rows.forEach((row) => {
-      const alias = row.user_alias || "Sin usuario";
+    rows.forEach((row, index) => {
+      const aliasKey = normalizeAliasForLeaderboard(row.user_alias);
+      const aliasDisplay = formatAliasForLeaderboard(row.user_alias);
+
+      const matchKey = String(
+        row.match_id ??
+        row.match_number ??
+        row.sort_order ??
+        `sin-partido-${index}`
+      );
+
       const points = Number(row.points || 0);
 
-      if (!usersMap.has(alias)) {
-        usersMap.set(alias, {
-          alias,
-          matches: 0,
-          hits: 0,
-          totalPoints: 0
+      if (!usersMap.has(aliasKey)) {
+        usersMap.set(aliasKey, {
+          alias: aliasDisplay,
+          matches: new Map()
         });
       }
 
-      const user = usersMap.get(alias);
+      const user = usersMap.get(aliasKey);
 
-      user.matches += 1;
+      const previousMatch = user.matches.get(matchKey);
 
-      if (points > 0) {
-        user.hits += 1;
+      if (!previousMatch) {
+        user.matches.set(matchKey, {
+          points: points,
+          hit: points > 0
+        });
+      } else {
+        previousMatch.points = Math.max(previousMatch.points, points);
+        previousMatch.hit = previousMatch.hit || points > 0;
       }
-
-      user.totalPoints += points;
     });
 
-    return Array.from(usersMap.values()).sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints;
-      }
+    const leaderboard = Array.from(usersMap.values())
+      .map((user) => {
+        const matchesArray = Array.from(user.matches.values());
 
-      if (b.hits !== a.hits) {
-        return b.hits - a.hits;
-      }
-
-      return b.matches - a.matches;
-    });
-  }
-
-  renderLeaderboard = function () {
-    ensureLeaderboardStageFilter();
-    updateLeaderboardTableHeader();
-
-    const tbody = document.getElementById("leaderboardBody");
-    if (!tbody) return;
-
-    const leaderboard = buildLeaderboardByStage();
+        return {
+          alias: user.alias,
+          matches: matchesArray.length,
+          hits: matchesArray.filter((match) => match.hit).length,
+          totalPoints: matchesArray.reduce((sum, match) => sum + match.points, 0)
+        };
+      })
+      .sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        if (b.hits !== a.hits) return b.hits - a.hits;
+        return b.matches - a.matches;
+      });
 
     if (!leaderboard.length) {
       tbody.innerHTML = `
@@ -1577,10 +1617,13 @@ injectQuarterFlagStyles();
       .join("");
   };
 
-  ensureLeaderboardStageFilter();
-
   document.addEventListener("DOMContentLoaded", () => {
     ensureLeaderboardStageFilter();
     renderLeaderboard();
   });
+
+  setTimeout(() => {
+    ensureLeaderboardStageFilter();
+    renderLeaderboard();
+  }, 800);
 })();
