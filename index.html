@@ -6,6 +6,7 @@
   <title>Road to World Cup 2026</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
   <div class="background-title">
     ROAD TO WORLD CUP 2026 · MÉXICO · CANADÁ · EEUU
@@ -33,6 +34,7 @@
   </header>
 
   <main class="app-shell">
+
     <section class="panel login-panel">
       <div>
         <h2>Participante</h2>
@@ -52,6 +54,7 @@
       </form>
 
       <p id="currentUser" class="current-user"></p>
+
       <p id="configWarning" class="config-warning hidden">
         Falta conectar Supabase. Revisa el archivo <strong>supabase.js</strong>.
       </p>
@@ -64,6 +67,7 @@
       <button class="tab-button" data-tab="starsSection">Jugadores</button>
     </nav>
 
+    <!-- PARTIDOS -->
     <section id="matchesSection" class="tab-section active">
       <div class="section-header">
         <div>
@@ -74,68 +78,78 @@
         <div class="toolbar">
           <select id="stageFilter" aria-label="Filtrar por fase">
             <option value="all">Todas las fases</option>
+            <option value="group">Grupos</option>
             <option value="round_32">Dieciseisavos</option>
             <option value="round_16">Octavos</option>
             <option value="quarter_final">Cuartos</option>
             <option value="semi_final">Semifinales</option>
             <option value="third_place">Tercer puesto</option>
             <option value="final">Final</option>
-            <option value="group">Grupos</option>
           </select>
 
-
-      <button id="refreshButton" class="ghost-button" type="button">Actualizar</button>
-    </div>
-  </div>
-
-  <!-- CUADRO VISUAL DE CUARTOS -->
-  <section class="quarter-bracket-section">
-    <div class="quarter-header">
-      <p class="quarter-label">Mundial 2026</p>
-      <h2>Cuartos de final</h2>
-      <p class="quarter-subtitle">El camino hacia semifinales</p>
-    </div>
-
-    <div id="quarterBracket" class="quarter-bracket"></div>
-  </section>
-
-  <!-- Lista normal de partidos -->
-  <div id="matchesList" class="matches-grid"></div>
-</section>
-
-          <button id="refreshButton" class="ghost-button" type="button">Actualizar</button>
+          <button id="refreshButton" class="ghost-button" type="button">
+            Actualizar
+          </button>
         </div>
       </div>
+
+      <!-- CUADRO VISUAL DE CUARTOS -->
+      <section class="quarter-bracket-section">
+        <div class="quarter-header">
+          <p class="quarter-label">Mundial 2026</p>
+          <h2>Cuartos de final</h2>
+          <p class="quarter-subtitle">El camino hacia semifinales</p>
+        </div>
+
+        <div id="quarterBracket" class="quarter-bracket"></div>
+      </section>
 
       <div id="matchesList" class="matches-grid"></div>
     </section>
 
+    <!-- CLASIFICACIÓN -->
     <section id="leaderboardSection" class="tab-section">
       <div class="section-header">
         <div>
           <p class="eyebrow">Ranking</p>
           <h2>Clasificación de usuarios</h2>
+          <p class="section-note">
+            Filtra la clasificación por fase para ver quién ha sumado más puntos en cada ronda.
+          </p>
+        </div>
+
+        <div class="toolbar">
+          <select id="leaderboardStageFilter" aria-label="Filtrar clasificación por fase">
+            <option value="all">General</option>
+            <option value="group">Fase de grupos</option>
+            <option value="round_32">Dieciseisavos</option>
+            <option value="round_16">Octavos</option>
+            <option value="quarter_final">Cuartos</option>
+            <option value="semi_final">Semifinales</option>
+            <option value="third_place">Tercer puesto</option>
+            <option value="final">Final</option>
+          </select>
         </div>
       </div>
 
       <div class="table-wrap">
-        <table>
+        <table id="leaderboardTable">
           <thead>
             <tr>
               <th>#</th>
               <th>Usuario</th>
+              <th>Partidos</th>
+              <th>Aciertos</th>
               <th>Puntos</th>
-              <th>Ganadores</th>
-              <th>Resultados</th>
-              <th>Prórroga</th>
-              <th>Penaltis</th>
             </tr>
           </thead>
+
           <tbody id="leaderboardBody"></tbody>
         </table>
       </div>
     </section>
 
+    <!-- PRONÓSTICOS -->
     <section id="predictionsSection" class="tab-section">
       <div class="section-header">
         <div>
@@ -156,6 +170,7 @@
       <div id="predictionsList" class="predictions-list"></div>
     </section>
 
+    <!-- JUGADORES -->
     <section id="starsSection" class="tab-section">
       <div class="section-header">
         <div>
@@ -206,6 +221,7 @@
         </article>
       </div>
     </section>
+
   </main>
 
   <div id="toast" class="toast hidden"></div>
