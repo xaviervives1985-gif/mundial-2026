@@ -1578,3 +1578,66 @@ td {
     justify-content: flex-start !important;
   }
 }
+
+/* =========================
+   QUITAR FOTOS SEMIFINALES
+   ========================= */
+
+#quarterBracket .semi-player-photo,
+#quarterBracket img.semi-player-photo,
+#quarterBracket .semi-player-photo-home,
+#quarterBracket .semi-player-photo-away {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+#quarterBracket .semi-team-home .semi-player-name,
+#quarterBracket .semi-team-home .semi-player-number,
+#quarterBracket .semi-team-home .semi-flag-row,
+#quarterBracket .semi-team-away .semi-player-name,
+#quarterBracket .semi-team-away .semi-player-number,
+#quarterBracket .semi-team-away .semi-flag-row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+#quarterBracket .semi-teams-zone {
+  grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) !important;
+  gap: 14px !important;
+}
+
+#quarterBracket .semi-team-panel {
+  min-width: 0 !important;
+  min-height: 230px !important;
+  padding: 22px !important;
+  justify-content: center !important;
+}
+
+#quarterBracket .semi-player-name {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  font-size: clamp(1rem, 2.2vw, 1.6rem) !important;
+}
+
+#quarterBracket .semi-country {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  font-size: clamp(1.2rem, 3vw, 2.2rem) !important;
+}
+
+@media (max-width: 1050px) {
+  #quarterBracket .semi-teams-zone {
+    grid-template-columns: 1fr !important;
+  }
+
+  #quarterBracket .semi-team-away {
+    text-align: left !important;
+  }
+
+  #quarterBracket .semi-team-away .semi-flag-row {
+    justify-content: flex-start !important;
+  }
+}
