@@ -1460,3 +1460,33 @@ td {
     order: -1;
   }
 }
+
+/* =========================
+   SOLO SEMIFINALES
+   Oculta cuartos, final y tercer puesto
+   ========================= */
+
+#quarterBracket .fifa-column {
+  display: none !important;
+}
+
+#quarterBracket .fifa-finals {
+  display: none !important;
+}
+
+#quarterBracket .fifa-bracket {
+  display: grid !important;
+  grid-template-columns: minmax(320px, 560px) !important;
+  justify-content: center !important;
+  align-items: start !important;
+}
+
+#quarterBracket .fifa-center-column {
+  width: 100% !important;
+}
+
+#quarterBracket .fifa-main-title {
+  text-align: center !important;
+  font-size: 1.1rem !important;
+  margin-bottom: 14px !important;
+}

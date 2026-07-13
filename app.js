@@ -1401,34 +1401,12 @@ function renderQuarterBracket() {
   const container = document.getElementById("quarterBracket");
   if (!container) return;
 
-  const quarterMatches = getQuarterMatches();
-
-  const leftMatches = quarterMatches
-    .filter((match) => getQuarterSide(match) === "left")
-    .map(createQuarterMatchCard)
-    .join("");
-
-  const rightMatches = quarterMatches
-    .filter((match) => getQuarterSide(match) === "right")
-    .map(createQuarterMatchCard)
-    .join("");
-
   const semifinals = getSemifinalMatches();
   const semi1 = semifinals[0];
   const semi2 = semifinals[1];
-  const thirdPlace = getThirdPlaceMatch();
-  const finalMatch = getFinalMatch();
 
   container.innerHTML = `
-    <div class="fifa-bracket">
-
-      <div class="fifa-column">
-        <div class="fifa-round-title">Cuartos de final</div>
-        <div class="bracket-side bracket-left">
-          ${leftMatches}
-        </div>
-      </div>
-
+    <div class="fifa-bracket semis-only">
       <div class="fifa-center-column">
         <div class="fifa-round-title fifa-main-title">Semifinales</div>
 
@@ -1436,27 +1414,7 @@ function renderQuarterBracket() {
           ${createFifaMatchCard(semi1, "Semifinal 1")}
           ${createFifaMatchCard(semi2, "Semifinal 2")}
         </div>
-
-        <div class="fifa-finals">
-          <div>
-            <div class="fifa-round-title fifa-small-title">Tercer puesto</div>
-            ${createFifaMatchCard(thirdPlace, "Partido por el tercer puesto")}
-          </div>
-
-          <div>
-            <div class="fifa-round-title fifa-small-title">Final</div>
-            ${createFifaMatchCard(finalMatch, "Final")}
-          </div>
-        </div>
       </div>
-
-      <div class="fifa-column">
-        <div class="fifa-round-title">Cuartos de final</div>
-        <div class="bracket-side bracket-right">
-          ${rightMatches}
-        </div>
-      </div>
-
     </div>
   `;
 }
