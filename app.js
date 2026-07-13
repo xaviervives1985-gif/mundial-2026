@@ -1826,12 +1826,6 @@ function injectFifaBracketStyles() {
 }
 
 injectFifaBracketStyles();
-  `;
-
-  document.head.appendChild(style);
-}
-
-injectFifaBracketStyles();
 
 /* =====================================================
    CLASIFICACIÓN LIMPIA
