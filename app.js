@@ -1294,6 +1294,109 @@ function createQuarterMatchCard(match) {
   `;
 }
 
+function getSemifinalMatches() {
+  const dbMatches = state.matches
+    .filter((match) => match.stage === "semi_final")
+    .sort((a, b) => Number(a.match_number || 999) - Number(b.match_number || 999));
+
+  const fallback = [
+    {
+      match_number: 101,
+      date: "14/07/2026",
+      time: "21:00",
+      home_team: { flag_emoji: "🇫🇷", code: "FRA", name: "Francia" },
+      away_team: { flag_emoji: "🇪🇸", code: "ESP", name: "España" },
+      home_score: null,
+      away_score: null,
+      status: "open"
+    },
+    {
+      match_number: 102,
+      date: "15/07/2026",
+      time: "21:00",
+      home_team: { flag_emoji: "🏴", code: "ENG", name: "Inglaterra" },
+      away_team: { flag_emoji: "🇦🇷", code: "ARG", name: "Argentina" },
+      home_score: null,
+      away_score: null,
+      status: "open"
+    }
+  ];
+
+  return fallback.map((item) => {
+    const dbMatch = dbMatches.find((match) => Number(match.match_number) === Number(item.match_number));
+    return dbMatch || item;
+  });
+}
+
+function getThirdPlaceMatch() {
+  return state.matches.find((match) => match.stage === "third_place") || {
+    match_number: 103,
+    date: "18/07/2026",
+    time: "23:00",
+    home_placeholder: "Perdedor P101",
+    away_placeholder: "Perdedor P102",
+    home_score: null,
+    away_score: null,
+    status: "open"
+  };
+}
+
+function getFinalMatch() {
+  return state.matches.find((match) => match.stage === "final") || {
+    match_number: 104,
+    date: "19/07/2026",
+    time: "21:00",
+    home_placeholder: "Ganador P101",
+    away_placeholder: "Ganador P102",
+    home_score: null,
+    away_score: null,
+    status: "open"
+  };
+}
+
+function renderFifaTeamRow(team, placeholder) {
+  const display = getTeamDisplay(team, placeholder);
+  const flagClass = getQuarterFlagClass(display.code);
+
+  return `
+    <div class="fifa-team-row">
+      <div class="fifa-team-info">
+        <span class="team-flag ${flagClass}" aria-hidden="true"></span>
+        <div>
+          <div class="fifa-team-code">${escapeHtml(display.code || "TBD")}</div>
+          <div class="fifa-team-name">${escapeHtml(display.name)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createFifaMatchCard(match, title) {
+  const when = getQuarterDate(match);
+  const matchCode = match.match_number ? `P${match.match_number}` : "Partido";
+
+  return `
+    <article class="fifa-match-card">
+      <div class="fifa-match-top">
+        <span>${escapeHtml(when.date)}</span>
+        <span>${escapeHtml(when.time)}</span>
+      </div>
+
+      <div class="fifa-match-title">${escapeHtml(title)}</div>
+      <div class="fifa-match-code">${escapeHtml(matchCode)}</div>
+
+      <div class="fifa-teams-box">
+        ${renderFifaTeamRow(match.home_team, match.home_placeholder)}
+        ${renderFifaTeamRow(match.away_team, match.away_placeholder)}
+      </div>
+
+      <div class="fifa-score">
+        ${escapeHtml(formatQuarterScore(match))}
+      </div>
+    </article>
+  `;
+}
+
 function renderQuarterBracket() {
   const container = document.getElementById("quarterBracket");
   if (!container) return;
@@ -1310,36 +1413,50 @@ function renderQuarterBracket() {
     .map(createQuarterMatchCard)
     .join("");
 
+  const semifinals = getSemifinalMatches();
+  const semi1 = semifinals[0];
+  const semi2 = semifinals[1];
+  const thirdPlace = getThirdPlaceMatch();
+  const finalMatch = getFinalMatch();
+
   container.innerHTML = `
-    <div class="bracket-side bracket-left">
-      ${leftMatches}
-    </div>
+    <div class="fifa-bracket">
 
-    <div class="bracket-center">
-      <div class="semi-card">
-        <h3>Semifinal 1</h3>
-        <div class="placeholder-team">Ganador P97</div>
-        <div class="placeholder-team">Ganador P98</div>
-        <small>14/07/2026 · 21:00</small>
+      <div class="fifa-column">
+        <div class="fifa-round-title">Cuartos de final</div>
+        <div class="bracket-side bracket-left">
+          ${leftMatches}
+        </div>
       </div>
 
-      <div class="final-card">
-        <h3>Final</h3>
-        <div class="placeholder-team">Ganador P101</div>
-        <div class="placeholder-team">Ganador P102</div>
-        <small>19/07/2026 · 21:00</small>
+      <div class="fifa-center-column">
+        <div class="fifa-round-title fifa-main-title">Semifinales</div>
+
+        <div class="fifa-semis">
+          ${createFifaMatchCard(semi1, "Semifinal 1")}
+          ${createFifaMatchCard(semi2, "Semifinal 2")}
+        </div>
+
+        <div class="fifa-finals">
+          <div>
+            <div class="fifa-round-title fifa-small-title">Tercer puesto</div>
+            ${createFifaMatchCard(thirdPlace, "Partido por el tercer puesto")}
+          </div>
+
+          <div>
+            <div class="fifa-round-title fifa-small-title">Final</div>
+            ${createFifaMatchCard(finalMatch, "Final")}
+          </div>
+        </div>
       </div>
 
-      <div class="semi-card">
-        <h3>Semifinal 2</h3>
-        <div class="placeholder-team">Ganador P99</div>
-        <div class="placeholder-team">Ganador P100</div>
-        <small>15/07/2026 · 21:00</small>
+      <div class="fifa-column">
+        <div class="fifa-round-title">Cuartos de final</div>
+        <div class="bracket-side bracket-right">
+          ${rightMatches}
+        </div>
       </div>
-    </div>
 
-    <div class="bracket-side bracket-right">
-      ${rightMatches}
     </div>
   `;
 }
@@ -1355,86 +1472,143 @@ document.addEventListener("DOMContentLoaded", () => {
   renderQuarterBracket();
 });
 
-function injectQuarterFlagStyles() {
-  if (document.getElementById("quarterFlagStyles")) return;
+function injectFifaBracketStyles() {
+  if (document.getElementById("fifaBracketStyles")) return;
 
   const style = document.createElement("style");
-  style.id = "quarterFlagStyles";
+  style.id = "fifaBracketStyles";
 
   style.textContent = `
-    .team-info {
+    .fifa-bracket {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(360px, 460px) minmax(260px, 1fr);
+      gap: 28px;
+      align-items: start;
+      margin-top: 28px;
+    }
+
+    .fifa-column,
+    .fifa-center-column {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .fifa-round-title {
+      color: #ffd34d;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .fifa-main-title {
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    .fifa-small-title {
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .fifa-semis,
+    .fifa-finals {
+      display: grid;
+      gap: 18px;
+    }
+
+    .fifa-match-card {
+      background:
+        linear-gradient(145deg, rgba(12, 30, 70, 0.96), rgba(7, 18, 45, 0.96));
+      border: 1px solid rgba(255, 211, 77, 0.28);
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow:
+        0 20px 45px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .fifa-match-top {
+      display: flex;
+      justify-content: space-between;
+      color: #c9d5f2;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .fifa-match-title {
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .fifa-match-code {
+      color: #ffd34d;
+      font-weight: 900;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+
+    .fifa-teams-box {
+      display: grid;
+      gap: 10px;
+    }
+
+    .fifa-team-row {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+
+    .fifa-team-info {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
-    .team-flag {
-      width: 54px;
-      height: 42px;
-      flex: 0 0 54px;
-      display: grid;
-      place-items: center;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.32);
-      box-shadow:
-        inset 0 0 18px rgba(255,255,255,0.16),
-        0 8px 18px rgba(0,0,0,0.24);
-      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+    .fifa-team-code {
+      color: #ffffff;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
     }
 
-    .flag-fra {
-      background: linear-gradient(90deg, #123a8c 0 33%, #ffffff 33% 66%, #e3344f 66% 100%);
+    .fifa-team-name {
+      color: #b9c7e8;
+      font-size: 0.82rem;
+      margin-top: 2px;
     }
 
-    .flag-mar {
-      background:
-        radial-gradient(circle at center, rgba(0,120,65,0.95) 0 16%, transparent 17%),
-        linear-gradient(135deg, #c8102e, #ef3340);
+    .fifa-score {
+      margin-top: 14px;
+      text-align: center;
+      color: #ffd34d;
+      font-weight: 900;
+      background: rgba(255, 211, 77, 0.12);
+      border: 1px solid rgba(255, 211, 77, 0.35);
+      border-radius: 999px;
+      padding: 8px 12px;
     }
 
-    .flag-esp {
-      background: linear-gradient(180deg, #c60b1e 0 25%, #ffc400 25% 75%, #c60b1e 75% 100%);
-    }
+    @media (max-width: 1100px) {
+      .fifa-bracket {
+        grid-template-columns: 1fr;
+      }
 
-    .flag-nor {
-      background:
-        linear-gradient(90deg, transparent 0 28%, #ffffff 28% 36%, #00205b 36% 48%, #ffffff 48% 56%, transparent 56%),
-        linear-gradient(180deg, transparent 0 34%, #ffffff 34% 43%, #00205b 43% 57%, #ffffff 57% 66%, transparent 66%),
-        #ba0c2f;
-    }
-
-    .flag-eng {
-      background:
-        linear-gradient(90deg, transparent 0 42%, #ce1124 42% 58%, transparent 58%),
-        linear-gradient(180deg, transparent 0 38%, #ce1124 38% 62%, transparent 62%),
-        #ffffff;
-    }
-
-    .flag-arg {
-      background: linear-gradient(180deg, #75aadb 0 33%, #ffffff 33% 66%, #75aadb 66% 100%);
-    }
-
-    .flag-sui {
-      background:
-        linear-gradient(90deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
-        linear-gradient(180deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
-        #d52b1e;
-    }
-
-    .flag-bel {
-      background: linear-gradient(90deg, #000000 0 33%, #ffd90c 33% 66%, #ef3340 66% 100%);
-    }
-
-    .flag-tbd {
-      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+      .fifa-center-column {
+        order: -1;
+      }
     }
   `;
 
   document.head.appendChild(style);
 }
 
-injectQuarterFlagStyles();
+injectFifaBracketStyles();
 
 /* =====================================================
    CLASIFICACIÓN LIMPIA

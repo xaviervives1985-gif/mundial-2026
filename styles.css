@@ -1326,3 +1326,137 @@ td {
 .flag-tbd {
   background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
 }
+
+/* =========================
+   BRACKET ESTILO FIFA
+   ========================= */
+
+.fifa-bracket-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(340px, 420px) minmax(260px, 1fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.fifa-bracket-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fifa-bracket-center {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fifa-stage-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffd34d;
+  margin-bottom: 8px;
+}
+
+.fifa-stage-label-small {
+  margin-bottom: 12px;
+}
+
+.fifa-semifinals-wrap {
+  display: grid;
+  gap: 18px;
+}
+
+.fifa-finals-wrap {
+  display: grid;
+  gap: 18px;
+}
+
+.fifa-final-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.fifa-stage-card {
+  background: rgba(8, 22, 55, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.fifa-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: #c9d5f2;
+  margin-bottom: 10px;
+}
+
+.fifa-card-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.fifa-card-matchcode {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffd34d;
+  margin-bottom: 12px;
+}
+
+.fifa-card-body {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.fifa-team-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fifa-team-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+}
+
+.fifa-score-pill {
+  margin-top: 14px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(255, 211, 77, 0.18), rgba(255, 211, 77, 0.08));
+  border: 1px solid rgba(255, 211, 77, 0.35);
+  color: #ffd34d;
+  font-weight: 800;
+}
+
+@media (max-width: 1100px) {
+  .fifa-bracket-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fifa-bracket-center {
+    order: -1;
+  }
+}
