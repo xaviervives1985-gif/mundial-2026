@@ -648,16 +648,20 @@ function renderLeaderboard() {
 function renderPredictionsOverview() {
   if (!els.predictionsList) return;
 
-  if (!state.predictionsOverview.length) {
+  const semifinalRows = state.predictionsOverview.filter((row) =>
+    row.stage === "semi_final" || [101, 102].includes(Number(row.match_number))
+  );
+
+  if (!semifinalRows.length) {
     els.predictionsList.innerHTML = `
       <div class="empty">
-        Todavía no hay pronósticos visibles. Recuerda: solo aparecen cuando el partido está cerrado o finalizado.
+        Todavía no hay pronósticos visibles de semifinales. Recuerda: solo aparecen cuando el partido está cerrado o finalizado.
       </div>
     `;
     return;
   }
 
-  const grouped = groupBy(state.predictionsOverview, "match_id");
+  const grouped = groupBy(semifinalRows, "match_id");
 
   els.predictionsList.innerHTML = Object.values(grouped)
     .map(renderPredictionMatchCard)
