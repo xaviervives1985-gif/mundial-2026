@@ -71,10 +71,14 @@ function init() {
 
   els.matchesList.addEventListener("submit", handlePredictionSubmit);
   els.matchesList.addEventListener("change", handlePredictionChange);
+  const quarterBracket = document.getElementById("quarterBracket");
+
+quarterBracket?.addEventListener("submit", handlePredictionSubmit);
+quarterBracket?.addEventListener("change", handlePredictionChange);
 
   // Al entrar en la web, mostrar directamente Cuartos de final.
   if (els.stageFilter) {
-    els.stageFilter.value = "quarter_final";
+    els.stageFilter.value = "semi_final";
   }
 
   loadAll();
@@ -1296,7 +1300,7 @@ function createQuarterMatchCard(match) {
 
 function getSemifinalMatches() {
   const dbMatches = state.matches
-    .filter((match) => match.stage === "semi_final")
+    .filter((match) => match.stage === "semi_final" || [101, 102].includes(Number(match.match_number)))
     .sort((a, b) => Number(a.match_number || 999) - Number(b.match_number || 999));
 
   const fallback = [
@@ -1304,8 +1308,8 @@ function getSemifinalMatches() {
       match_number: 101,
       date: "14/07/2026",
       time: "21:00",
-      home_team: { flag_emoji: "🇫🇷", code: "FRA", name: "Francia" },
-      away_team: { flag_emoji: "🇪🇸", code: "ESP", name: "España" },
+      home_team: { flag_emoji: "🇪🇸", code: "ESP", name: "España" },
+      away_team: { flag_emoji: "🇫🇷", code: "FRA", name: "Francia" },
       home_score: null,
       away_score: null,
       status: "open"
@@ -1324,75 +1328,174 @@ function getSemifinalMatches() {
 
   return fallback.map((item) => {
     const dbMatch = dbMatches.find((match) => Number(match.match_number) === Number(item.match_number));
-    return dbMatch || item;
+
+    if (!dbMatch) return item;
+
+    return {
+      ...item,
+      ...dbMatch,
+      home_team: dbMatch.home_team || item.home_team,
+      away_team: dbMatch.away_team || item.away_team
+    };
   });
 }
 
-function getThirdPlaceMatch() {
-  return state.matches.find((match) => match.stage === "third_place") || {
-    match_number: 103,
-    date: "18/07/2026",
-    time: "23:00",
-    home_placeholder: "Perdedor P101",
-    away_placeholder: "Perdedor P102",
-    home_score: null,
-    away_score: null,
-    status: "open"
+function getSemiPosterInfo(match) {
+  const number = Number(match.match_number);
+
+  if (number === 101) {
+    return {
+      title: "Semifinal 1",
+      homeStar: "Lamine Yamal",
+      homeNumber: "19",
+      awayStar: "Mbappé",
+      awayNumber: "10",
+      dateText: "Martes 14 de julio · 21:00 h",
+      theme: "semi-one"
+    };
+  }
+
+  return {
+    title: "Semifinal 2",
+    homeStar: "Harry Kane",
+    homeNumber: "9",
+    awayStar: "Messi",
+    awayNumber: "10",
+    dateText: "Miércoles 15 de julio · 21:00 h",
+    theme: "semi-two"
   };
 }
 
-function getFinalMatch() {
-  return state.matches.find((match) => match.stage === "final") || {
-    match_number: 104,
-    date: "19/07/2026",
-    time: "21:00",
-    home_placeholder: "Ganador P101",
-    away_placeholder: "Ganador P102",
-    home_score: null,
-    away_score: null,
-    status: "open"
-  };
-}
+function renderSemiPredictionForm(match) {
+  if (!match.id) {
+    return `
+      <div class="semi-warning">
+        Crea este partido en Supabase con match_number ${match.match_number} para poder guardar resultados.
+      </div>
+    `;
+  }
 
-function renderFifaTeamRow(team, placeholder) {
-  const display = getTeamDisplay(team, placeholder);
-  const flagClass = getQuarterFlagClass(display.code);
+  const prediction = state.predictions.find((item) => Number(item.match_id) === Number(match.id));
+  const isOpen = match.status === "open";
+
+  const homeScoreValue = prediction?.home_score ?? "";
+  const awayScoreValue = prediction?.away_score ?? "";
+  const extraTimeChecked = prediction?.predicts_extra_time ? "checked" : "";
+  const penaltiesChecked = prediction?.predicts_penalties ? "checked" : "";
+  const teamOptions = buildWinnerOptions(match, prediction);
 
   return `
-    <div class="fifa-team-row">
-      <div class="fifa-team-info">
-        <span class="team-flag ${flagClass}" aria-hidden="true"></span>
-        <div>
-          <div class="fifa-team-code">${escapeHtml(display.code || "TBD")}</div>
-          <div class="fifa-team-name">${escapeHtml(display.name)}</div>
-        </div>
+    <form class="prediction-form semi-result-form" data-match-id="${match.id}">
+      <div class="semi-result-title">Tu resultado</div>
+
+      <div class="semi-score-inputs">
+        <input
+          type="number"
+          name="home_score"
+          min="0"
+          inputmode="numeric"
+          placeholder="0"
+          value="${homeScoreValue}"
+          ${isOpen ? "" : "disabled"}
+        />
+
+        <span>-</span>
+
+        <input
+          type="number"
+          name="away_score"
+          min="0"
+          inputmode="numeric"
+          placeholder="0"
+          value="${awayScoreValue}"
+          ${isOpen ? "" : "disabled"}
+        />
       </div>
-    </div>
+
+      <div class="semi-extra-options">
+        <label>
+          <input
+            type="checkbox"
+            name="predicts_extra_time"
+            ${extraTimeChecked}
+            ${isOpen ? "" : "disabled"}
+          />
+          Prórroga
+        </label>
+
+        <label>
+          <input
+            type="checkbox"
+            name="predicts_penalties"
+            ${penaltiesChecked}
+            ${isOpen ? "" : "disabled"}
+          />
+          Penaltis
+        </label>
+      </div>
+
+      <div class="semi-winner-field">
+        <label>Ganador si hay empate</label>
+        <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
+          ${teamOptions}
+        </select>
+      </div>
+
+      <button type="submit" ${isOpen ? "" : "disabled"}>
+        Guardar pronóstico
+      </button>
+
+      <div class="semi-points">
+        Mis puntos: <strong>${prediction?.points ?? 0}</strong>
+      </div>
+    </form>
   `;
 }
 
-function createFifaMatchCard(match, title) {
-  const when = getQuarterDate(match);
-  const matchCode = match.match_number ? `P${match.match_number}` : "Partido";
+function createSemiPosterCard(match) {
+  const home = getTeamDisplay(match.home_team, match.home_placeholder);
+  const away = getTeamDisplay(match.away_team, match.away_placeholder);
+  const info = getSemiPosterInfo(match);
 
   return `
-    <article class="fifa-match-card">
-      <div class="fifa-match-top">
-        <span>${escapeHtml(when.date)}</span>
-        <span>${escapeHtml(when.time)}</span>
+    <article class="semi-poster-card ${info.theme}">
+      <div class="semi-badge">${escapeHtml(info.title)}</div>
+
+      <div class="semi-teams-zone">
+        <div class="semi-team-panel semi-team-home">
+          <div class="semi-player-name">${escapeHtml(info.homeStar)}</div>
+          <div class="semi-player-number">${escapeHtml(info.homeNumber)}</div>
+
+          <div class="semi-flag-row">
+            ${renderFlag(home)}
+            <div>
+              <div class="semi-country">${escapeHtml(home.name)}</div>
+              <div class="semi-code">${escapeHtml(home.code || "")}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="semi-vs">VS</div>
+
+        <div class="semi-team-panel semi-team-away">
+          <div class="semi-player-name">${escapeHtml(info.awayStar)}</div>
+          <div class="semi-player-number">${escapeHtml(info.awayNumber)}</div>
+
+          <div class="semi-flag-row">
+            ${renderFlag(away)}
+            <div>
+              <div class="semi-country">${escapeHtml(away.name)}</div>
+              <div class="semi-code">${escapeHtml(away.code || "")}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="fifa-match-title">${escapeHtml(title)}</div>
-      <div class="fifa-match-code">${escapeHtml(matchCode)}</div>
-
-      <div class="fifa-teams-box">
-        ${renderFifaTeamRow(match.home_team, match.home_placeholder)}
-        ${renderFifaTeamRow(match.away_team, match.away_placeholder)}
+      <div class="semi-date-pill">
+        🗓️ ${escapeHtml(info.dateText)}
       </div>
 
-      <div class="fifa-score">
-        ${escapeHtml(formatQuarterScore(match))}
-      </div>
+      ${renderSemiPredictionForm(match)}
     </article>
   `;
 }
@@ -1401,34 +1504,27 @@ function renderQuarterBracket() {
   const container = document.getElementById("quarterBracket");
   if (!container) return;
 
+  const title = document.querySelector(".quarter-header h2");
+  const subtitle = document.querySelector(".quarter-subtitle");
+
+  if (title) title.textContent = "Semifinales";
+  if (subtitle) subtitle.textContent = "Road to World Cup 2026";
+
   const semifinals = getSemifinalMatches();
-  const semi1 = semifinals[0];
-  const semi2 = semifinals[1];
 
   container.innerHTML = `
-    <div class="fifa-bracket semis-only">
-      <div class="fifa-center-column">
-        <div class="fifa-round-title fifa-main-title">Semifinales</div>
-
-        <div class="fifa-semis">
-          ${createFifaMatchCard(semi1, "Semifinal 1")}
-          ${createFifaMatchCard(semi2, "Semifinal 2")}
-        </div>
+    <section class="semis-poster">
+      <div class="semis-main-title">
+        <span>Semifinales</span>
+        <small>Road to World Cup 2026</small>
       </div>
-    </div>
+
+      <div class="semis-poster-grid">
+        ${semifinals.map(createSemiPosterCard).join("")}
+      </div>
+    </section>
   `;
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  const stageFilter = document.getElementById("stageFilter");
-
-  if (stageFilter) {
-    stageFilter.value = "quarter_final";
-    stageFilter.dispatchEvent(new Event("change"));
-  }
-
-  renderQuarterBracket();
-});
 
 function injectFifaBracketStyles() {
   if (document.getElementById("fifaBracketStyles")) return;
@@ -1437,130 +1533,299 @@ function injectFifaBracketStyles() {
   style.id = "fifaBracketStyles";
 
   style.textContent = `
-    .fifa-bracket {
+    #quarterBracket {
+      width: 100%;
+    }
+
+    #quarterBracket .semis-poster {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) minmax(360px, 460px) minmax(260px, 1fr);
-      gap: 28px;
-      align-items: start;
-      margin-top: 28px;
+      gap: 24px;
     }
 
-    .fifa-column,
-    .fifa-center-column {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
+    #quarterBracket .semis-main-title {
+      text-align: center;
+      margin-bottom: 8px;
     }
 
-    .fifa-round-title {
+    #quarterBracket .semis-main-title span {
+      display: block;
+      font-size: clamp(2.4rem, 7vw, 5.6rem);
+      line-height: 0.9;
+      font-weight: 1000;
+      text-transform: uppercase;
+      letter-spacing: -0.05em;
       color: #ffd34d;
+      text-shadow: 0 8px 30px rgba(0,0,0,0.55);
+    }
+
+    #quarterBracket .semis-main-title small {
+      display: block;
+      margin-top: 8px;
+      color: #ffffff;
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: 0.14em;
-      font-size: 0.85rem;
-      margin-bottom: 6px;
+      letter-spacing: 0.26em;
     }
 
-    .fifa-main-title {
-      text-align: center;
-      font-size: 1rem;
-    }
-
-    .fifa-small-title {
-      text-align: center;
-      margin-top: 4px;
-    }
-
-    .fifa-semis,
-    .fifa-finals {
+    #quarterBracket .semis-poster-grid {
       display: grid;
-      gap: 18px;
+      gap: 28px;
     }
 
-    .fifa-match-card {
+    #quarterBracket .semi-poster-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 30px;
+      padding: clamp(18px, 4vw, 34px);
+      border: 1px solid rgba(255, 211, 77, 0.38);
       background:
-        linear-gradient(145deg, rgba(12, 30, 70, 0.96), rgba(7, 18, 45, 0.96));
-      border: 1px solid rgba(255, 211, 77, 0.28);
-      border-radius: 22px;
-      padding: 16px;
+        radial-gradient(circle at 18% 38%, rgba(220, 38, 38, 0.42), transparent 34%),
+        radial-gradient(circle at 82% 38%, rgba(37, 99, 235, 0.42), transparent 34%),
+        linear-gradient(135deg, rgba(4, 8, 18, 0.96), rgba(10, 18, 38, 0.96));
       box-shadow:
-        0 20px 45px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        0 26px 70px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.09);
     }
 
-    .fifa-match-top {
-      display: flex;
-      justify-content: space-between;
-      color: #c9d5f2;
-      font-size: 0.9rem;
-      margin-bottom: 10px;
+    #quarterBracket .semi-poster-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.08), transparent 24%, transparent 76%, rgba(255,255,255,0.08)),
+        radial-gradient(circle at center, rgba(255, 211, 77, 0.18), transparent 34%);
     }
 
-    .fifa-match-title {
-      color: white;
-      font-size: 1.1rem;
-      font-weight: 900;
-      margin-bottom: 4px;
+    #quarterBracket .semi-badge {
+      position: relative;
+      z-index: 1;
+      width: fit-content;
+      margin: 0 auto 22px;
+      padding: 10px 34px;
+      border-radius: 0 0 18px 18px;
+      background: linear-gradient(135deg, #ffd34d, #d99a20);
+      color: #121212;
+      font-weight: 1000;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.28);
     }
 
-    .fifa-match-code {
-      color: #ffd34d;
-      font-weight: 900;
-      font-size: 0.9rem;
-      margin-bottom: 12px;
-    }
-
-    .fifa-teams-box {
+    #quarterBracket .semi-teams-zone {
+      position: relative;
+      z-index: 1;
       display: grid;
-      gap: 10px;
+      grid-template-columns: 1fr auto 1fr;
+      gap: clamp(12px, 3vw, 28px);
+      align-items: stretch;
     }
 
-    .fifa-team-row {
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 14px;
-      padding: 10px 12px;
+    #quarterBracket .semi-team-panel {
+      min-height: 250px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.075);
+      border: 1px solid rgba(255,255,255,0.14);
     }
 
-    .fifa-team-info {
+    #quarterBracket .semi-team-home {
+      background:
+        linear-gradient(135deg, rgba(185, 28, 28, 0.58), rgba(255,255,255,0.07));
+    }
+
+    #quarterBracket .semi-team-away {
+      background:
+        linear-gradient(135deg, rgba(29, 78, 216, 0.58), rgba(255,255,255,0.07));
+      text-align: right;
+    }
+
+    #quarterBracket .semi-player-name {
+      color: rgba(255,255,255,0.72);
+      font-size: clamp(1.1rem, 3vw, 1.8rem);
+      font-weight: 1000;
+      text-transform: uppercase;
+      letter-spacing: -0.04em;
+    }
+
+    #quarterBracket .semi-player-number {
+      margin-top: 2px;
+      color: rgba(255, 211, 77, 0.86);
+      font-size: clamp(3.5rem, 9vw, 7rem);
+      line-height: 0.9;
+      font-weight: 1000;
+    }
+
+    #quarterBracket .semi-vs {
+      align-self: center;
+      color: #ffd34d;
+      font-size: clamp(2.4rem, 7vw, 5rem);
+      font-weight: 1000;
+      text-shadow: 0 8px 30px rgba(0,0,0,0.55);
+    }
+
+    #quarterBracket .semi-flag-row {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
+      margin-top: 18px;
     }
 
-    .fifa-team-code {
+    #quarterBracket .semi-team-away .semi-flag-row {
+      justify-content: flex-end;
+    }
+
+    #quarterBracket .semi-country {
       color: #ffffff;
-      font-size: 1.1rem;
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 1000;
+      text-transform: uppercase;
+      letter-spacing: -0.04em;
+    }
+
+    #quarterBracket .semi-code {
+      color: rgba(255,255,255,0.72);
       font-weight: 900;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.16em;
     }
 
-    .fifa-team-name {
-      color: #b9c7e8;
-      font-size: 0.82rem;
-      margin-top: 2px;
+    #quarterBracket .semi-date-pill {
+      position: relative;
+      z-index: 1;
+      width: fit-content;
+      margin: 20px auto 0;
+      padding: 12px 26px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.52);
+      border: 1px solid rgba(255, 211, 77, 0.45);
+      color: #ffffff;
+      font-weight: 900;
     }
 
-    .fifa-score {
-      margin-top: 14px;
+    #quarterBracket .semi-result-form {
+      position: relative;
+      z-index: 1;
+      margin: 20px auto 0;
+      max-width: 760px;
+      padding: 18px;
+      border: 1px solid rgba(255, 211, 77, 0.28);
+      border-radius: 24px;
+      background: rgba(0,0,0,0.48);
+      display: grid;
+      gap: 14px;
+    }
+
+    #quarterBracket .semi-result-title {
       text-align: center;
       color: #ffd34d;
-      font-weight: 900;
-      background: rgba(255, 211, 77, 0.12);
-      border: 1px solid rgba(255, 211, 77, 0.35);
-      border-radius: 999px;
-      padding: 8px 12px;
+      font-weight: 1000;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
 
-    @media (max-width: 1100px) {
-      .fifa-bracket {
+    #quarterBracket .semi-score-inputs {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    #quarterBracket .semi-score-inputs input {
+      height: 58px;
+      text-align: center;
+      font-size: 1.7rem;
+      font-weight: 1000;
+      border-radius: 16px;
+    }
+
+    #quarterBracket .semi-score-inputs span {
+      color: #ffd34d;
+      font-size: 2rem;
+      font-weight: 1000;
+    }
+
+    #quarterBracket .semi-extra-options {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    #quarterBracket .semi-extra-options label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #d9e3f7;
+      font-weight: 800;
+    }
+
+    #quarterBracket .semi-extra-options input {
+      min-height: auto;
+      width: auto;
+    }
+
+    #quarterBracket .semi-winner-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    #quarterBracket .semi-winner-field label {
+      color: #aebbd3;
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #quarterBracket .semi-points {
+      text-align: center;
+      color: #d9e3f7;
+      font-weight: 900;
+    }
+
+    #quarterBracket .semi-points strong {
+      color: #ffd34d;
+    }
+
+    #quarterBracket .semi-warning {
+      position: relative;
+      z-index: 1;
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(251, 113, 133, 0.14);
+      border: 1px solid rgba(251, 113, 133, 0.34);
+      color: #ffd7df;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    @media (max-width: 780px) {
+      #quarterBracket .semi-teams-zone {
         grid-template-columns: 1fr;
       }
 
-      .fifa-center-column {
-        order: -1;
+      #quarterBracket .semi-team-away {
+        text-align: left;
+      }
+
+      #quarterBracket .semi-team-away .semi-flag-row {
+        justify-content: flex-start;
+      }
+
+      #quarterBracket .semi-vs {
+        text-align: center;
       }
     }
+  `;
+
+  document.head.appendChild(style);
+}
+
+injectFifaBracketStyles();
   `;
 
   document.head.appendChild(style);
