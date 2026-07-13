@@ -2134,3 +2134,44 @@ injectFifaBracketStyles();
     renderLeaderboard();
   }, 1500);
 })();
+
+
+/* =====================================================
+   PARCHE FINAL: pestaña Pronósticos SOLO semifinales
+   ===================================================== */
+
+renderPredictionsOverview = function () {
+  if (!els.predictionsList) return;
+
+  const semifinalRows = (state.predictionsOverview || []).filter((row) => {
+    const matchNumber = Number(row.match_number);
+    const stage = String(row.stage || "").toLowerCase();
+
+    return stage === "semi_final" || matchNumber === 101 || matchNumber === 102;
+  });
+
+  if (!semifinalRows.length) {
+    els.predictionsList.innerHTML = `
+      <div class="empty">
+        Todavía no hay pronósticos visibles de semifinales.
+        Solo se mostrarán los partidos 101 y 102.
+      </div>
+    `;
+    return;
+  }
+
+  const grouped = groupBy(semifinalRows, "match_id");
+
+  els.predictionsList.innerHTML = Object.values(grouped)
+    .map(renderPredictionMatchCard)
+    .join("");
+};
+
+document.getElementById("predictionsRefreshButton")?.addEventListener("click", async () => {
+  await loadPredictionsOverview();
+  renderPredictionsOverview();
+});
+
+setTimeout(() => {
+  renderPredictionsOverview();
+}, 1200);
