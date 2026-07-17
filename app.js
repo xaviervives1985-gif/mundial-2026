@@ -44,6 +44,669 @@ const els = {
   toast: document.getElementById("toast")
 };
 
+
+
+/* =====================================================
+   FORZADO FINAL 103/104 - NO SEMIFINALES
+   Si ves este texto en la web, has subido el archivo correcto.
+   ===================================================== */
+
+(function forcedFinal103104Patch() {
+  const FINAL_NUMBERS = [103, 104];
+
+  function isFinal103104(match) {
+    const number = Number(match?.match_number);
+    const stage = String(match?.stage || "").toLowerCase();
+    return FINAL_NUMBERS.includes(number) || stage === "third_place" || stage === "final";
+  }
+
+  window.__VERSION_FINAL_103_104__ = true;
+
+  function findTeam(names, fallback) {
+    const lowered = names.map((name) => String(name).toLowerCase());
+
+    const found = (state.matches || [])
+      .flatMap((match) => [match.home_team, match.away_team])
+      .filter(Boolean)
+      .find((team) => {
+        const name = String(team.name || "").toLowerCase();
+        const code = String(team.code || "").toLowerCase();
+        return lowered.some((item) => name.includes(item) || code.includes(item));
+      });
+
+    return found || fallback;
+  }
+
+  function getFinalAndThirdMatchesForDisplay() {
+    const spain = findTeam(["españa", "espana", "spain", "esp"], {
+      id: null,
+      flag_emoji: "🇪🇸",
+      code: "ESP",
+      name: "España"
+    });
+
+    const argentina = findTeam(["argentina", "arg"], {
+      id: null,
+      flag_emoji: "🇦🇷",
+      code: "ARG",
+      name: "Argentina"
+    });
+
+    const france = findTeam(["francia", "france", "fra"], {
+      id: null,
+      flag_emoji: "🇫🇷",
+      code: "FRA",
+      name: "Francia"
+    });
+
+    const england = findTeam(["inglaterra", "england", "eng"], {
+      id: null,
+      flag_emoji: "🏴",
+      code: "ENG",
+      name: "Inglaterra"
+    });
+
+    const fallback = [
+      {
+        id: null,
+        stage: "third_place",
+        match_number: 103,
+        sort_order: 103,
+        kickoff_at: "2026-07-18T21:00:00+02:00",
+        status: "open",
+        home_score: null,
+        away_score: null,
+        winner_team_id: null,
+        went_extra_time: false,
+        went_penalties: false,
+        home_team: france,
+        away_team: england,
+        home_placeholder: null,
+        away_placeholder: null
+      },
+      {
+        id: null,
+        stage: "final",
+        match_number: 104,
+        sort_order: 104,
+        kickoff_at: "2026-07-19T21:00:00+02:00",
+        status: "open",
+        home_score: null,
+        away_score: null,
+        winner_team_id: null,
+        went_extra_time: false,
+        went_penalties: false,
+        home_team: spain,
+        away_team: argentina,
+        home_placeholder: null,
+        away_placeholder: null
+      }
+    ];
+
+    const db = (state.matches || [])
+      .filter(isFinal103104)
+      .sort((a, b) => Number(a.match_number || 9999) - Number(b.match_number || 9999));
+
+    return fallback.map((item) => {
+      const dbMatch = db.find((match) => Number(match.match_number) === Number(item.match_number));
+
+      if (!dbMatch) return item;
+
+      return {
+        ...item,
+        ...dbMatch,
+        home_team: dbMatch.home_team || item.home_team,
+        away_team: dbMatch.away_team || item.away_team
+      };
+    });
+  }
+
+  function isFinalPredictionOpen(match) {
+    if (!match) return false;
+    const status = String(match.status || "").toLowerCase();
+    return status === "open" || status === "locked";
+  }
+
+  function finalTeamDisplay(match, side) {
+    const team = side === "home"
+      ? getTeamDisplay(match.home_team, match.home_placeholder)
+      : getTeamDisplay(match.away_team, match.away_placeholder);
+
+    return `
+      <div class="final-only-team ${side}">
+        ${side === "home" ? renderFlag(team) : ""}
+        <div>
+          <div class="final-only-team-name">${escapeHtml(team.name)}</div>
+          <div class="final-only-team-code">${escapeHtml(team.code || "")}</div>
+        </div>
+        ${side === "away" ? renderFlag(team) : ""}
+      </div>
+    `;
+  }
+
+  function renderFinalOnlyPredictionCard(match) {
+    const prediction = state.predictions.find((item) => Number(item.match_id) === Number(match.id));
+    const isOpen = isFinalPredictionOpen(match);
+    const hasId = Boolean(match.id);
+    const number = Number(match.match_number);
+    const title = number === 103 ? "Tercer y cuarto puesto" : "Gran Final";
+    const icon = number === 103 ? "🥉" : "🏆";
+    const subtitle = number === 103 ? "Francia vs Inglaterra" : "España vs Argentina";
+    const teamOptions = buildWinnerOptions(match, prediction);
+    const homeScoreValue = prediction?.home_score ?? "";
+    const awayScoreValue = prediction?.away_score ?? "";
+    const extraTimeChecked = prediction?.predicts_extra_time ? "checked" : "";
+    const penaltiesChecked = prediction?.predicts_penalties ? "checked" : "";
+
+    return `
+      <article class="final-only-card">
+        <div class="final-only-top">
+          <div>
+            <div class="final-only-kicker">${icon} Partido ${escapeHtml(match.match_number || "")}</div>
+            <h3>${escapeHtml(title)}</h3>
+            <p>${escapeHtml(subtitle)} · ${escapeHtml(formatDate(match.kickoff_at))}</p>
+          </div>
+
+          <span class="status status-${escapeHtml(match.status || "open")}">
+            ${escapeHtml(statusLabels[match.status] || match.status || "Abierto")}
+          </span>
+        </div>
+
+        <div class="final-only-teams">
+          ${finalTeamDisplay(match, "home")}
+          <div class="final-only-real-score">${formatRealScore(match)}</div>
+          ${finalTeamDisplay(match, "away")}
+        </div>
+
+        ${
+          hasId
+            ? `
+              <form class="prediction-form final-only-form" data-match-id="${match.id}">
+                <div class="final-only-form-title">Tu resultado</div>
+
+                <div class="final-only-score-inputs">
+                  <input type="number" name="home_score" min="0" inputmode="numeric" placeholder="0" value="${homeScoreValue}" ${isOpen ? "" : "disabled"} />
+                  <span>-</span>
+                  <input type="number" name="away_score" min="0" inputmode="numeric" placeholder="0" value="${awayScoreValue}" ${isOpen ? "" : "disabled"} />
+                </div>
+
+                <div class="final-only-checks">
+                  <label>
+                    <input type="checkbox" name="predicts_extra_time" ${extraTimeChecked} ${isOpen ? "" : "disabled"} />
+                    Prórroga
+                  </label>
+
+                  <label>
+                    <input type="checkbox" name="predicts_penalties" ${penaltiesChecked} ${isOpen ? "" : "disabled"} />
+                    Penaltis
+                  </label>
+                </div>
+
+                <div class="final-only-winner">
+                  <label>Ganador si hay empate</label>
+                  <select name="predicted_winner_team_id" ${isOpen ? "" : "disabled"}>
+                    ${teamOptions}
+                  </select>
+                </div>
+
+                <div class="final-only-footer">
+                  <div>Mis puntos: <strong>${prediction?.points ?? 0}</strong></div>
+                  <button type="submit" ${isOpen ? "" : "disabled"}>Guardar pronóstico</button>
+                </div>
+              </form>
+            `
+            : `
+              <div class="final-only-warning">
+                Falta crear este partido en Supabase. Ejecuta el SQL del ZIP para crear/abrir los partidos 103 y 104.
+              </div>
+            `
+        }
+      </article>
+    `;
+  }
+
+  function injectForcedFinalStyles() {
+    if (document.getElementById("forcedFinal103104Styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "forcedFinal103104Styles";
+
+    style.textContent = `
+      .semis-poster,
+      .semis-poster-grid,
+      .semi-poster-card,
+      #quarterBracket .semis-poster,
+      #quarterBracket .semi-poster-card {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+      }
+
+      .final-only-panel {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 22px;
+      }
+
+      .final-only-version {
+        width: fit-content;
+        margin: 0 auto 8px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        background: rgba(255, 211, 77, 0.16);
+        color: #ffd34d;
+        border: 1px solid rgba(255, 211, 77, 0.34);
+        font-weight: 1000;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+      }
+
+      .final-only-version-list {
+        margin: 0 0 18px;
+      }
+
+      .final-only-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        padding: clamp(22px, 4vw, 36px);
+        border-radius: 30px;
+        border: 1px solid rgba(255, 211, 77, 0.30);
+        background:
+          radial-gradient(circle at 16% 20%, rgba(255, 211, 77, 0.16), transparent 28%),
+          linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.98));
+        box-shadow: 0 20px 60px rgba(0,0,0,0.30);
+      }
+
+      .final-only-header p {
+        margin: 0 0 8px;
+        color: #ffd34d;
+        font-weight: 1000;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .final-only-header h2 {
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(2rem, 5vw, 4rem);
+        line-height: 0.96;
+        letter-spacing: -0.06em;
+        text-transform: uppercase;
+      }
+
+      .final-only-header span {
+        font-size: clamp(2.4rem, 7vw, 5rem);
+      }
+
+      .final-only-grid,
+      .final-only-list-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .final-only-card {
+        overflow: hidden;
+        border-radius: 30px;
+        border: 1px solid rgba(255,255,255,0.14);
+        background:
+          radial-gradient(circle at 18% 16%, rgba(255, 211, 77, 0.12), transparent 32%),
+          linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(8, 13, 28, 0.98));
+        box-shadow: 0 22px 70px rgba(0,0,0,0.32);
+      }
+
+      .final-only-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 22px;
+        border-bottom: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .final-only-kicker {
+        color: #ffd34d;
+        font-weight: 1000;
+        font-size: 0.78rem;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .final-only-top h3 {
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(1.35rem, 3vw, 2rem);
+        letter-spacing: -0.04em;
+      }
+
+      .final-only-top p {
+        margin: 6px 0 0;
+        color: #aebbd3;
+        font-weight: 800;
+      }
+
+      .final-only-teams {
+        padding: 22px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+      }
+
+      .final-only-team {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .final-only-team.away {
+        justify-content: flex-end;
+        text-align: right;
+      }
+
+      .final-only-team-name {
+        color: #ffffff;
+        font-size: clamp(1rem, 2.4vw, 1.35rem);
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: -0.03em;
+      }
+
+      .final-only-team-code {
+        color: #aebbd3;
+        font-size: 0.78rem;
+        font-weight: 1000;
+        letter-spacing: 0.12em;
+      }
+
+      .final-only-real-score {
+        min-width: 76px;
+        text-align: center;
+        color: #ffd34d;
+        font-size: clamp(1.3rem, 4vw, 2.2rem);
+        font-weight: 1000;
+      }
+
+      .final-only-form {
+        display: grid;
+        gap: 16px;
+        padding: 0 22px 22px;
+      }
+
+      .final-only-form-title {
+        color: #ffd34d;
+        font-weight: 1000;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+
+      .final-only-score-inputs {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .final-only-score-inputs input {
+        height: 62px;
+        border-radius: 18px;
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: 1000;
+      }
+
+      .final-only-score-inputs span {
+        color: #ffd34d;
+        font-size: 2rem;
+        font-weight: 1000;
+      }
+
+      .final-only-checks {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .final-only-checks label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #d9e3f7;
+        font-weight: 900;
+      }
+
+      .final-only-checks input {
+        width: auto;
+        min-height: auto;
+      }
+
+      .final-only-winner {
+        display: grid;
+        gap: 6px;
+      }
+
+      .final-only-winner label {
+        color: #aebbd3;
+        font-size: 0.78rem;
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .final-only-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        color: #d9e3f7;
+        font-weight: 900;
+      }
+
+      .final-only-footer strong {
+        color: #ffd34d;
+      }
+
+      .final-only-footer button {
+        width: auto;
+        min-width: 210px;
+      }
+
+      .final-only-warning {
+        margin: 0 22px 22px;
+        padding: 15px;
+        border-radius: 18px;
+        border: 1px solid rgba(251, 191, 36, 0.28);
+        background: rgba(251, 191, 36, 0.12);
+        color: #ffe7a3;
+        font-weight: 900;
+      }
+
+      @media (max-width: 980px) {
+        .final-only-grid,
+        .final-only-list-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .final-only-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .final-only-teams {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+
+        .final-only-team,
+        .final-only-team.away {
+          justify-content: center;
+          text-align: center;
+        }
+
+        .final-only-footer {
+          justify-content: center;
+          text-align: center;
+        }
+
+        .final-only-footer button {
+          width: 100%;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function forceRenderFinals() {
+    injectForcedFinalStyles();
+
+    const title = document.querySelector(".quarter-header h2");
+    const subtitle = document.querySelector(".quarter-subtitle");
+    const label = document.querySelector(".quarter-label");
+
+    if (label) label.textContent = "FINAL DEL MUNDIAL";
+    if (title) title.textContent = "Final y tercer puesto";
+    if (subtitle) subtitle.textContent = "Solo se muestran los partidos 103 y 104.";
+
+    renderQuarterBracket();
+
+    const button = document.getElementById("finalHeroPredictionButton");
+
+    if (button && !button.dataset.forcedFinalButton) {
+      button.dataset.forcedFinalButton = "true";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        document.getElementById("quarterBracket")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }, true);
+    }
+  }
+
+  const oldHandlePredictionSubmit = handlePredictionSubmit;
+
+  handlePredictionSubmit = async function (event) {
+    const form = event.target;
+
+    if (
+      !form ||
+      !form.classList ||
+      !form.classList.contains("prediction-form")
+    ) {
+      return;
+    }
+
+    const matchId = Number(form.dataset.matchId);
+    const match = state.matches.find((item) => Number(item.id) === matchId);
+
+    if (match && FINAL_NUMBERS.includes(Number(match.match_number))) {
+      event.preventDefault();
+
+      if (!state.alias) {
+        showToast("Primero escribe tu alias.");
+        return;
+      }
+
+      if (!isFinalPredictionOpen(match)) {
+        showToast("Este partido no está abierto para pronósticos.");
+        return;
+      }
+
+      const formData = new FormData(form);
+
+      const payload = {
+        user_alias: state.alias,
+        match_id: matchId,
+        home_score: numberOrNull(formData.get("home_score")),
+        away_score: numberOrNull(formData.get("away_score")),
+        predicted_winner_team_id: numberOrNull(formData.get("predicted_winner_team_id")),
+        predicts_extra_time: formData.get("predicts_extra_time") === "on",
+        predicts_penalties: formData.get("predicts_penalties") === "on",
+        predicted_mvp_player_id: null
+      };
+
+      if (payload.home_score === null || payload.away_score === null) {
+        showToast("Pon el resultado completo antes de guardar.");
+        return;
+      }
+
+      if (payload.home_score > payload.away_score) {
+        payload.predicted_winner_team_id = match.home_team?.id || null;
+      } else if (payload.away_score > payload.home_score) {
+        payload.predicted_winner_team_id = match.away_team?.id || null;
+      } else if (!payload.predicted_winner_team_id) {
+        showToast("Si pones empate, elige quién gana.");
+        return;
+      }
+
+      if (payload.predicts_penalties) {
+        payload.predicts_extra_time = true;
+      }
+
+      const { error } = await supabase.rpc("save_prediction", {
+        p_user_alias: payload.user_alias,
+        p_match_id: payload.match_id,
+        p_home_score: payload.home_score,
+        p_away_score: payload.away_score,
+        p_predicted_winner_team_id: payload.predicted_winner_team_id,
+        p_predicts_extra_time: payload.predicts_extra_time,
+        p_predicts_penalties: payload.predicts_penalties,
+        p_predicted_mvp_player_id: null
+      });
+
+      if (error) {
+        console.error(error);
+        showToast(error.message || "No se pudo guardar el pronóstico.");
+        return;
+      }
+
+      await loadPredictions();
+      await loadLeaderboard();
+      await loadPredictionsOverview();
+
+      renderMatches();
+      renderLeaderboard();
+      renderPredictionsOverview();
+      renderQuarterBracket();
+
+      showToast("Pronóstico guardado.");
+      return;
+    }
+
+    return oldHandlePredictionSubmit(event);
+  };
+
+  window.getFinalAndThirdMatchesForDisplay = getFinalAndThirdMatchesForDisplay;
+  window.renderFinalOnlyPredictionCard = renderFinalOnlyPredictionCard;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", forceRenderFinals);
+  } else {
+    forceRenderFinals();
+  }
+
+  setTimeout(forceRenderFinals, 500);
+  setTimeout(forceRenderFinals, 1400);
+  setTimeout(forceRenderFinals, 2600);
+})();
+
+
 init();
 
 function init() {
@@ -295,40 +958,33 @@ async function loadBestPlayers() {
 }
 
 function renderMatches() {
-  const filter = els.stageFilter.value;
-  const matches = filter === "all"
-    ? state.matches
-    : state.matches.filter((match) => match.stage === filter);
+  const matches = getFinalAndThirdMatchesForDisplay();
 
   if (!matches.length) {
     els.matchesList.innerHTML = `
       <div class="empty">
-        Todavía no hay partidos cargados para esta fase.
-        Cuando se sepan los cruces, añádelos en Supabase.
+        Todavía no están creados los partidos 103 y 104 en Supabase.
       </div>
     `;
     return;
   }
 
-  const grouped = groupBy(matches, "stage");
-
-  els.matchesList.innerHTML = Object.entries(grouped)
-    .map(([stage, stageMatches]) => `
-      <div>
-        <h3 class="stage-title">${stageLabels[stage] || stage}</h3>
-        <div class="matches-grid">
-          ${stageMatches.map(renderMatchCard).join("")}
-        </div>
+  els.matchesList.innerHTML = `
+    <div>
+      <h3 class="stage-title">Final y tercer puesto</h3>
+      <div class="final-only-version final-only-version-list">VERSIÓN FINAL 103/104</div>
+      <div class="matches-grid final-only-list-grid">
+        ${matches.map(renderFinalOnlyPredictionCard).join("")}
       </div>
-    `)
-    .join("");
+    </div>
+  `;
 }
 
 function renderMatchCard(match) {
   const home = getTeamDisplay(match.home_team, match.home_placeholder);
   const away = getTeamDisplay(match.away_team, match.away_placeholder);
   const prediction = state.predictions.find((item) => Number(item.match_id) === Number(match.id));
-  const isOpen = match.status === "open" || (match.status === "locked" && [101, 102].includes(Number(match.match_number)));
+  const isOpen = match.status === "open" || (match.status === "locked" && [103, 104].includes(Number(match.match_number)));
   const scoreText = formatRealScore(match);
   const teamOptions = buildWinnerOptions(match, prediction);
   const homeScoreValue = prediction?.home_score ?? "";
@@ -544,7 +1200,7 @@ async function handlePredictionSubmit(event) {
     match &&
     (
       match.status === "open" ||
-      (match.status === "locked" && [101, 102].includes(Number(match.match_number)))
+      (match.status === "locked" && [103, 104].includes(Number(match.match_number)))
     );
 
   if (!match || !isSemiPredictionOpen) {
@@ -1387,7 +2043,7 @@ function renderSemiPredictionForm(match) {
   }
 
   const prediction = state.predictions.find((item) => Number(item.match_id) === Number(match.id));
-  const isOpen = match.status === "open" || (match.status === "locked" && [101, 102].includes(Number(match.match_number)));
+  const isOpen = match.status === "open" || (match.status === "locked" && [103, 104].includes(Number(match.match_number)));
 
   const homeScoreValue = prediction?.home_score ?? "";
   const awayScoreValue = prediction?.away_score ?? "";
@@ -1517,16 +2173,28 @@ function renderQuarterBracket() {
 
   const title = document.querySelector(".quarter-header h2");
   const subtitle = document.querySelector(".quarter-subtitle");
+  const label = document.querySelector(".quarter-label");
 
-  if (title) title.textContent = "Semifinales";
-  if (subtitle) subtitle.textContent = "Road to World Cup 2026";
+  if (label) label.textContent = "FINAL DEL MUNDIAL";
+  if (title) title.textContent = "Final y tercer puesto";
+  if (subtitle) subtitle.textContent = "Pronósticos abiertos para los partidos 103 y 104";
 
-  const semifinals = getSemifinalMatches();
+  const finals = getFinalAndThirdMatchesForDisplay();
 
   container.innerHTML = `
-    <section class="semis-poster">
-      <div class="semis-poster-grid">
-        ${semifinals.map(createSemiPosterCard).join("")}
+    <section class="final-only-panel">
+      <div class="final-only-version">VERSIÓN FINAL 103/104</div>
+
+      <div class="final-only-header">
+        <div>
+          <p>Últimos partidos</p>
+          <h2>Haz tus pronósticos finales</h2>
+        </div>
+        <span>🏆 + 🥉</span>
+      </div>
+
+      <div class="final-only-grid">
+        ${finals.map(renderFinalOnlyPredictionCard).join("")}
       </div>
     </section>
   `;
