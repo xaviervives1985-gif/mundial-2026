@@ -3474,3 +3474,283 @@ renderPredictionsOverview = function () {
 
   setTimeout(initFinalHero, 800);
 })();
+
+
+/* =====================================================
+   PARCHE PORTADA FINAL:
+   - Jugadores como estrellas
+   - Tercer y cuarto puesto Francia vs Inglaterra
+   ===================================================== */
+
+(function finalHeroStarsAndThirdPlacePatch() {
+  function injectFinalStarsStyles() {
+    if (document.getElementById("finalHeroStarsPatchStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "finalHeroStarsPatchStyles";
+
+    style.textContent = `
+      #finalCoverHero .final-player-stack {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(110px, 1fr)) !important;
+        gap: clamp(12px, 2vw, 22px) !important;
+        align-items: center !important;
+        justify-items: center !important;
+      }
+
+      #finalCoverHero .final-team-side.argentina .final-player-stack {
+        direction: rtl !important;
+      }
+
+      #finalCoverHero .final-player-card,
+      #finalCoverHero .final-player-card.big {
+        --star-size: clamp(118px, 14vw, 200px);
+
+        width: var(--star-size) !important;
+        height: var(--star-size) !important;
+        min-height: auto !important;
+        border-radius: 0 !important;
+        border: 1px solid rgba(255,255,255,0.24) !important;
+        background:
+          radial-gradient(circle at 50% 34%, rgba(255,255,255,0.34), transparent 36%),
+          linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.08)) !important;
+        display: grid !important;
+        place-items: center !important;
+        padding: 18px !important;
+        box-shadow:
+          0 18px 42px rgba(0,0,0,0.24),
+          inset 0 1px 0 rgba(255,255,255,0.22) !important;
+        backdrop-filter: blur(7px);
+        -webkit-backdrop-filter: blur(7px);
+        clip-path: polygon(
+          50% 0%,
+          61% 35%,
+          98% 35%,
+          68% 57%,
+          79% 91%,
+          50% 70%,
+          21% 91%,
+          32% 57%,
+          2% 35%,
+          39% 35%
+        ) !important;
+        transform: translateY(var(--lift, 0px)) !important;
+        position: relative !important;
+        overflow: hidden !important;
+      }
+
+      #finalCoverHero .final-player-card::before {
+        content: "" !important;
+        position: absolute !important;
+        inset: 9% !important;
+        clip-path: inherit !important;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(255,255,255,0.18), transparent 44%),
+          rgba(255,255,255,0.05) !important;
+        pointer-events: none !important;
+      }
+
+      #finalCoverHero .final-player-card:nth-child(1) {
+        rotate: -7deg;
+      }
+
+      #finalCoverHero .final-player-card:nth-child(2) {
+        rotate: 5deg;
+      }
+
+      #finalCoverHero .final-player-card:nth-child(3) {
+        rotate: 6deg;
+      }
+
+      #finalCoverHero .final-player-card:nth-child(4) {
+        rotate: -5deg;
+      }
+
+      #finalCoverHero .final-player-icon,
+      #finalCoverHero .final-player-icon::after {
+        display: none !important;
+        content: none !important;
+      }
+
+      #finalCoverHero .final-player-name {
+        position: relative !important;
+        z-index: 2 !important;
+        color: #ffffff !important;
+        font-size: clamp(0.82rem, 1.2vw, 1.08rem) !important;
+        font-weight: 1000 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+        text-align: center !important;
+        line-height: 1.05 !important;
+        width: 72% !important;
+        text-shadow: 0 5px 16px rgba(0,0,0,0.42) !important;
+      }
+
+      #finalCoverHero .third-place-card {
+        width: min(500px, 100%);
+        margin-top: 4px;
+        border-radius: 24px;
+        padding: 13px 14px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08)),
+          rgba(7, 13, 45, 0.46);
+        border: 1px solid rgba(255,255,255,0.22);
+        box-shadow: 0 16px 42px rgba(0,0,0,0.24);
+        display: grid;
+        gap: 10px;
+      }
+
+      #finalCoverHero .third-place-label {
+        color: #ffd34d;
+        font-size: 0.76rem;
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+
+      #finalCoverHero .third-place-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #finalCoverHero .third-team-pill {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 8px;
+        border-radius: 16px;
+        padding: 9px 11px;
+        color: #071126;
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: -0.03em;
+        border: 1px solid rgba(255,255,255,0.18);
+      }
+
+      #finalCoverHero .third-team-pill.france {
+        background: linear-gradient(90deg, #1d4ed8 0 33%, #ffffff 33% 66%, #ef233c 66%);
+      }
+
+      #finalCoverHero .third-team-pill.england {
+        background: linear-gradient(135deg, #ffffff 0 62%, #d7192f 62%);
+      }
+
+      #finalCoverHero .third-team-flag {
+        width: 34px;
+        height: 27px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: rgba(255,255,255,0.72);
+        font-size: 1.15rem;
+      }
+
+      #finalCoverHero .third-mini-vs {
+        color: #ffffff;
+        font-weight: 1000;
+        font-size: 0.9rem;
+      }
+
+      #finalCoverHero .third-place-date {
+        color: rgba(255,255,255,0.88);
+        font-weight: 900;
+        font-size: 0.92rem;
+      }
+
+      #finalCoverHero .third-place-date strong {
+        color: #ffd34d;
+      }
+
+      @media (max-width: 1050px) {
+        #finalCoverHero .final-player-stack {
+          width: 100% !important;
+          max-width: 620px !important;
+          grid-template-columns: repeat(4, minmax(76px, 1fr)) !important;
+        }
+
+        #finalCoverHero .final-player-card,
+        #finalCoverHero .final-player-card.big {
+          --star-size: clamp(94px, 18vw, 138px);
+        }
+      }
+
+      @media (max-width: 620px) {
+        #finalCoverHero .final-player-stack {
+          grid-template-columns: repeat(2, minmax(90px, 1fr)) !important;
+          gap: 14px !important;
+        }
+
+        #finalCoverHero .final-player-card,
+        #finalCoverHero .final-player-card.big {
+          --star-size: 112px;
+        }
+
+        #finalCoverHero .final-player-name {
+          font-size: 0.78rem !important;
+          width: 76% !important;
+        }
+
+        #finalCoverHero .third-place-row {
+          grid-template-columns: 1fr;
+        }
+
+        #finalCoverHero .third-mini-vs {
+          display: none;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function addThirdPlaceCard() {
+    const panel = document.querySelector("#finalCoverHero .final-main-panel");
+    const finalCard = document.querySelector("#finalCoverHero .final-match-card");
+
+    if (!panel || !finalCard || document.getElementById("thirdPlaceFinalCard")) return;
+
+    const card = document.createElement("div");
+    card.id = "thirdPlaceFinalCard";
+    card.className = "third-place-card";
+    card.innerHTML = `
+      <div class="third-place-label">Tercer y cuarto puesto</div>
+
+      <div class="third-place-row">
+        <div class="third-team-pill france">
+          <span class="third-team-flag">🇫🇷</span>
+          <span>Francia</span>
+        </div>
+
+        <div class="third-mini-vs">VS</div>
+
+        <div class="third-team-pill england">
+          <span class="third-team-flag">🏴</span>
+          <span>Inglaterra</span>
+        </div>
+      </div>
+
+      <div class="third-place-date">
+        🥉 Partido por el bronce · <strong>Sábado 18 de julio · 21:00</strong>
+      </div>
+    `;
+
+    finalCard.insertAdjacentElement("afterend", card);
+  }
+
+  function initPatch() {
+    injectFinalStarsStyles();
+    addThirdPlaceCard();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPatch);
+  } else {
+    initPatch();
+  }
+
+  setTimeout(initPatch, 600);
+  setTimeout(initPatch, 1400);
+})();
