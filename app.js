@@ -2929,3 +2929,548 @@ renderPredictionsOverview = function () {
     renderFullClassificationSummary();
   }, 2200);
 })();
+
+
+/* =====================================================
+   PORTADA FINAL ESPAÑA vs ARGENTINA
+   Hero visual para dar importancia a la final
+   ===================================================== */
+
+(function finalHeroCoverPatch() {
+  function injectFinalHeroStyles() {
+    if (document.getElementById("finalHeroCoverStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "finalHeroCoverStyles";
+
+    style.textContent = `
+      .final-cover-hero {
+        position: relative;
+        overflow: hidden;
+        margin: 26px auto 36px;
+        width: min(1440px, calc(100% - 28px));
+        min-height: clamp(520px, 70vh, 760px);
+        border-radius: 36px;
+        border: 1px solid rgba(255, 211, 77, 0.32);
+        background:
+          radial-gradient(circle at 18% 25%, rgba(255, 211, 77, 0.18), transparent 22%),
+          radial-gradient(circle at 78% 18%, rgba(112, 181, 255, 0.18), transparent 24%),
+          linear-gradient(90deg, #bb1026 0%, #d7192f 42%, #101a5c 42%, #070d2d 100%);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48);
+        isolation: isolate;
+      }
+
+      .final-cover-hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,0.12), transparent 18%),
+          linear-gradient(90deg, rgba(255,255,255,0.08), transparent 18%, transparent 82%, rgba(255,255,255,0.08)),
+          repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 26px);
+        opacity: 0.75;
+        z-index: -2;
+      }
+
+      .final-cover-hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 20% 95%, rgba(255, 255, 255, 0.16), transparent 25%),
+          radial-gradient(circle at 82% 92%, rgba(255, 255, 255, 0.13), transparent 25%),
+          linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.38) 100%);
+        z-index: -1;
+      }
+
+      .final-hero-stars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.9;
+      }
+
+      .final-star {
+        position: absolute;
+        color: rgba(255,255,255,0.9);
+        font-size: clamp(24px, 4vw, 54px);
+        font-weight: 1000;
+        text-shadow: 0 6px 22px rgba(0,0,0,0.35);
+      }
+
+      .final-star:nth-child(1) { left: 8%; top: 12%; transform: rotate(18deg); }
+      .final-star:nth-child(2) { left: 25%; bottom: 14%; transform: rotate(-12deg); }
+      .final-star:nth-child(3) { right: 13%; top: 8%; transform: rotate(22deg); }
+      .final-star:nth-child(4) { right: 7%; bottom: 20%; transform: rotate(-18deg); }
+
+      .final-cover-content {
+        position: relative;
+        z-index: 2;
+        min-height: inherit;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 440px) minmax(0, 1fr);
+        align-items: stretch;
+        gap: clamp(14px, 3vw, 34px);
+        padding: clamp(22px, 4vw, 48px);
+      }
+
+      .final-team-side {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 20px;
+        padding: clamp(10px, 3vw, 22px);
+      }
+
+      .final-team-side.argentina {
+        align-items: flex-end;
+        text-align: right;
+      }
+
+      .final-player-stack {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(84px, 1fr));
+        gap: 12px;
+        align-items: end;
+      }
+
+      .final-team-side.argentina .final-player-stack {
+        direction: rtl;
+      }
+
+      .final-player-card {
+        min-height: clamp(130px, 18vw, 230px);
+        border-radius: 26px;
+        border: 1px solid rgba(255,255,255,0.14);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.055)),
+          radial-gradient(circle at 50% 8%, rgba(255,255,255,0.24), transparent 36%);
+        display: grid;
+        align-content: end;
+        justify-items: center;
+        padding: 14px 10px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 40px rgba(0,0,0,0.22);
+        transform: translateY(var(--lift, 0px));
+      }
+
+      .final-player-card.big {
+        min-height: clamp(180px, 26vw, 330px);
+      }
+
+      .final-player-icon {
+        width: clamp(54px, 8vw, 105px);
+        height: clamp(54px, 8vw, 105px);
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 50% 30%, #fff 0 15%, transparent 16%),
+          linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.18));
+        position: relative;
+        margin-bottom: 10px;
+        opacity: 0.95;
+      }
+
+      .final-player-icon::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -54%;
+        width: 155%;
+        height: 78%;
+        border-radius: 58% 58% 18% 18%;
+        transform: translateX(-50%);
+        background: rgba(255,255,255,0.78);
+      }
+
+      .final-player-name {
+        position: relative;
+        z-index: 2;
+        color: #ffffff;
+        font-size: clamp(0.74rem, 1.3vw, 1rem);
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: -0.02em;
+        text-align: center;
+        text-shadow: 0 5px 18px rgba(0,0,0,0.5);
+      }
+
+      .final-main-panel {
+        align-self: center;
+        display: grid;
+        justify-items: center;
+        text-align: center;
+        gap: 16px;
+      }
+
+      .final-title {
+        color: #ffffff;
+        font-size: clamp(5.4rem, 13vw, 12rem);
+        line-height: 0.78;
+        font-weight: 1000;
+        letter-spacing: -0.08em;
+        text-transform: uppercase;
+        transform: skew(-7deg);
+        text-shadow:
+          0 8px 0 rgba(0,0,0,0.16),
+          0 22px 60px rgba(0,0,0,0.42);
+      }
+
+      .final-vs-box {
+        width: clamp(116px, 15vw, 180px);
+        aspect-ratio: 1;
+        border-radius: 30px;
+        background: rgba(255,255,255,0.96);
+        color: #101a5c;
+        display: grid;
+        place-items: center;
+        font-size: clamp(2.5rem, 6vw, 5rem);
+        font-weight: 1000;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.38);
+        border: 6px solid rgba(255,255,255,0.42);
+      }
+
+      .final-match-card {
+        width: min(520px, 100%);
+        border-radius: 28px;
+        padding: 14px;
+        background: rgba(255,255,255,0.94);
+        box-shadow: 0 22px 60px rgba(0,0,0,0.35);
+        display: grid;
+        gap: 10px;
+      }
+
+      .final-flags-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .final-flag-pill {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 8px;
+        border-radius: 18px;
+        padding: 10px 12px;
+        color: #071126;
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: -0.03em;
+        border: 1px solid rgba(0,0,0,0.08);
+      }
+
+      .final-flag-pill.spain {
+        background: linear-gradient(180deg, #c60b1e 0 26%, #ffc400 26% 74%, #c60b1e 74%);
+      }
+
+      .final-flag-pill.argentina {
+        background: linear-gradient(180deg, #6cb8ff 0 33%, #ffffff 33% 66%, #6cb8ff 66%);
+      }
+
+      .final-flag-emoji {
+        width: 38px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.72);
+        font-size: 1.3rem;
+      }
+
+      .final-flag-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .final-mini-vs {
+        color: #101a5c;
+        font-weight: 1000;
+        font-size: 1.15rem;
+      }
+
+      .final-date {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        color: #101a5c;
+        font-weight: 1000;
+        font-size: clamp(0.95rem, 2vw, 1.15rem);
+      }
+
+      .final-date span {
+        color: #d7192f;
+      }
+
+      .final-cta-row {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+
+      .final-cta {
+        border: 0;
+        border-radius: 999px;
+        padding: 13px 18px;
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        background: linear-gradient(135deg, #ffd34d, #d99a20);
+        color: #101010;
+        box-shadow: 0 14px 34px rgba(0,0,0,0.26);
+      }
+
+      .final-cta.secondary {
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.24);
+        color: #ffffff;
+      }
+
+      .final-team-name-large {
+        color: #ffffff;
+        font-size: clamp(2.2rem, 5vw, 5rem);
+        line-height: 0.9;
+        font-weight: 1000;
+        letter-spacing: -0.07em;
+        text-transform: uppercase;
+        text-shadow: 0 12px 44px rgba(0,0,0,0.45);
+      }
+
+      .final-team-sub {
+        color: rgba(255,255,255,0.82);
+        font-weight: 1000;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      @media (max-width: 1050px) {
+        .final-cover-content {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+
+        .final-team-side,
+        .final-team-side.argentina {
+          align-items: center;
+          text-align: center;
+        }
+
+        .final-player-stack {
+          width: 100%;
+          max-width: 560px;
+          grid-template-columns: repeat(4, minmax(70px, 1fr));
+          order: 2;
+        }
+
+        .final-player-card,
+        .final-player-card.big {
+          min-height: 145px;
+        }
+
+        .final-team-name-large {
+          order: 1;
+        }
+
+        .final-main-panel {
+          order: -1;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .final-cover-hero {
+          width: calc(100% - 16px);
+          border-radius: 24px;
+          min-height: auto;
+        }
+
+        .final-cover-content {
+          padding: 18px;
+        }
+
+        .final-title {
+          font-size: 4.6rem;
+        }
+
+        .final-player-stack {
+          grid-template-columns: repeat(2, minmax(90px, 1fr));
+        }
+
+        .final-flags-row {
+          grid-template-columns: 1fr;
+        }
+
+        .final-mini-vs {
+          display: none;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function scrollToFinalMatch() {
+    const finalMatch =
+      [...document.querySelectorAll("[data-match-id], .match-card, article")]
+        .find((node) => /España|Spain|Argentina|Final|104/i.test(node.textContent || ""));
+
+    if (finalMatch) {
+      finalMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    document.getElementById("matchesSection")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function goToLeaderboard() {
+    const leaderboardTab =
+      document.querySelector('[data-tab-target="leaderboard"]') ||
+      document.querySelector('[data-section="leaderboard"]') ||
+      [...document.querySelectorAll("button, a")].find((el) => /clasificaci[oó]n|ranking/i.test(el.textContent || ""));
+
+    if (leaderboardTab) {
+      leaderboardTab.click();
+      return;
+    }
+
+    document.getElementById("leaderboardSection")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function createFinalHero() {
+    if (document.getElementById("finalCoverHero")) return;
+
+    const hero = document.createElement("section");
+    hero.id = "finalCoverHero";
+    hero.className = "final-cover-hero";
+    hero.innerHTML = `
+      <div class="final-hero-stars" aria-hidden="true">
+        <span class="final-star">☆</span>
+        <span class="final-star">✦</span>
+        <span class="final-star">☆</span>
+        <span class="final-star">✦</span>
+      </div>
+
+      <div class="final-cover-content">
+        <div class="final-team-side spain">
+          <div class="final-player-stack" aria-hidden="true">
+            <div class="final-player-card" style="--lift: 18px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Lamine</div>
+            </div>
+            <div class="final-player-card big" style="--lift: -10px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Pedri</div>
+            </div>
+            <div class="final-player-card" style="--lift: 0px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Nico</div>
+            </div>
+            <div class="final-player-card big" style="--lift: 24px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Rodri</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="final-team-sub">Finalista</div>
+            <div class="final-team-name-large">España</div>
+          </div>
+        </div>
+
+        <div class="final-main-panel">
+          <div class="final-title">Final</div>
+
+          <div class="final-vs-box">VS</div>
+
+          <div class="final-match-card">
+            <div class="final-flags-row">
+              <div class="final-flag-pill spain">
+                <span class="final-flag-emoji">🇪🇸</span>
+                <span class="final-flag-name">España</span>
+              </div>
+
+              <div class="final-mini-vs">VS</div>
+
+              <div class="final-flag-pill argentina">
+                <span class="final-flag-emoji">🇦🇷</span>
+                <span class="final-flag-name">Argentina</span>
+              </div>
+            </div>
+
+            <div class="final-date">
+              🏆 Gran Final · <span>Domingo 19 de julio · 21:00</span>
+            </div>
+          </div>
+
+          <div class="final-cta-row">
+            <button type="button" class="final-cta" id="finalHeroPredictionButton">
+              Hacer pronóstico
+            </button>
+            <button type="button" class="final-cta secondary" id="finalHeroRankingButton">
+              Ver clasificación
+            </button>
+          </div>
+        </div>
+
+        <div class="final-team-side argentina">
+          <div class="final-player-stack" aria-hidden="true">
+            <div class="final-player-card big" style="--lift: 20px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Messi</div>
+            </div>
+            <div class="final-player-card" style="--lift: -4px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Julián</div>
+            </div>
+            <div class="final-player-card big" style="--lift: -12px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Dibu</div>
+            </div>
+            <div class="final-player-card" style="--lift: 26px">
+              <div class="final-player-icon"></div>
+              <div class="final-player-name">Lautaro</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="final-team-sub">Finalista</div>
+            <div class="final-team-name-large">Argentina</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const header =
+      document.querySelector("header.hero") ||
+      document.querySelector("header") ||
+      document.querySelector(".hero") ||
+      document.body.firstElementChild;
+
+    if (header && header.parentNode) {
+      header.insertAdjacentElement("afterend", hero);
+    } else {
+      document.body.prepend(hero);
+    }
+
+    document.getElementById("finalHeroPredictionButton")?.addEventListener("click", scrollToFinalMatch);
+    document.getElementById("finalHeroRankingButton")?.addEventListener("click", goToLeaderboard);
+  }
+
+  function initFinalHero() {
+    injectFinalHeroStyles();
+    createFinalHero();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initFinalHero);
+  } else {
+    initFinalHero();
+  }
+
+  setTimeout(initFinalHero, 800);
+})();
