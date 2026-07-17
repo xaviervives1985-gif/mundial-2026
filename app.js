@@ -707,6 +707,502 @@ const els = {
 })();
 
 
+
+
+/* =====================================================
+   PARCHE PRONÓSTICOS FINAL 103/104
+   Muestra resultados guardados en la pestaña Pronósticos
+   ===================================================== */
+
+(function finalPredictionsOverviewPatch() {
+  const FINAL_MATCH_NUMBERS = [103, 104];
+
+  function normalizarAliasFinal(alias) {
+    return String(alias || "Sin usuario")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function finalMatchAllowed(match) {
+    const number = Number(match?.match_number);
+    const stage = String(match?.stage || "").toLowerCase();
+
+    return FINAL_MATCH_NUMBERS.includes(number) || stage === "third_place" || stage === "final";
+  }
+
+  function finalTeamText(team, placeholder) {
+    if (team) {
+      return `${team.flag_emoji || ""} ${team.name || ""}`.trim();
+    }
+
+    return placeholder || "Por definir";
+  }
+
+  function finalWinnerText(match, winnerId) {
+    if (!winnerId) return "Sin elegir";
+
+    if (match.home_team && Number(match.home_team.id) === Number(winnerId)) {
+      return finalTeamText(match.home_team, match.home_placeholder);
+    }
+
+    if (match.away_team && Number(match.away_team.id) === Number(winnerId)) {
+      return finalTeamText(match.away_team, match.away_placeholder);
+    }
+
+    return "Ganador elegido";
+  }
+
+  async function fetchFinalPredictionsRows() {
+    const { data: matches, error: matchesError } = await supabase
+      .from("matches")
+      .select(`
+        id,
+        stage,
+        match_number,
+        sort_order,
+        kickoff_at,
+        home_placeholder,
+        away_placeholder,
+        home_score,
+        away_score,
+        status,
+        winner_team_id,
+        went_extra_time,
+        went_penalties,
+        home_team:home_team_id(id, name, code, flag_emoji, flag_url),
+        away_team:away_team_id(id, name, code, flag_emoji, flag_url)
+      `)
+      .in("match_number", FINAL_MATCH_NUMBERS)
+      .order("match_number", { ascending: true });
+
+    if (matchesError) {
+      console.error(matchesError);
+      throw matchesError;
+    }
+
+    const finalMatches = matches || [];
+
+    if (!finalMatches.length) return [];
+
+    const matchIds = finalMatches.map((match) => match.id);
+
+    const { data: predictions, error: predictionsError } = await supabase
+      .from("predictions")
+      .select(`
+        id,
+        user_alias,
+        match_id,
+        home_score,
+        away_score,
+        predicted_winner_team_id,
+        predicts_extra_time,
+        predicts_penalties,
+        points,
+        created_at,
+        updated_at
+      `)
+      .in("match_id", matchIds)
+      .order("match_id", { ascending: true })
+      .order("user_alias", { ascending: true });
+
+    if (predictionsError) {
+      console.error(predictionsError);
+      throw predictionsError;
+    }
+
+    const predictionsByMatch = new Map();
+
+    (predictions || []).forEach((prediction) => {
+      const key = String(prediction.match_id);
+
+      if (!predictionsByMatch.has(key)) {
+        predictionsByMatch.set(key, []);
+      }
+
+      predictionsByMatch.get(key).push(prediction);
+    });
+
+    return finalMatches
+      .filter(finalMatchAllowed)
+      .map((match) => ({
+        match,
+        predictions: predictionsByMatch.get(String(match.id)) || []
+      }));
+  }
+
+  function renderFinalPredictionRows(match, predictions) {
+    if (!predictions.length) {
+      return `
+        <div class="final-overview-empty">
+          Todavía no hay pronósticos guardados para este partido.
+        </div>
+      `;
+    }
+
+    return `
+      <div class="final-overview-table-wrap">
+        <table class="final-overview-table">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Resultado guardado</th>
+              <th>Ganador</th>
+              <th>Prórroga</th>
+              <th>Penaltis</th>
+              <th>Puntos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${predictions.map((prediction) => `
+              <tr>
+                <td>
+                  <strong>${escapeHtml(normalizarAliasFinal(prediction.user_alias))}</strong>
+                </td>
+                <td>
+                  <span class="final-score-pill">
+                    ${escapeHtml(prediction.home_score ?? "-")}
+                    -
+                    ${escapeHtml(prediction.away_score ?? "-")}
+                  </span>
+                </td>
+                <td>${escapeHtml(finalWinnerText(match, prediction.predicted_winner_team_id))}</td>
+                <td>
+                  ${prediction.predicts_extra_time
+                    ? `<span class="final-mini-badge yes">Sí</span>`
+                    : `<span class="final-mini-badge no">No</span>`
+                  }
+                </td>
+                <td>
+                  ${prediction.predicts_penalties
+                    ? `<span class="final-mini-badge yes">Sí</span>`
+                    : `<span class="final-mini-badge no">No</span>`
+                  }
+                </td>
+                <td>
+                  <span class="final-points-pill">${escapeHtml(prediction.points ?? 0)} pts</span>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderFinalPredictionsMatchCard(group) {
+    const match = group.match;
+    const home = finalTeamText(match.home_team, match.home_placeholder);
+    const away = finalTeamText(match.away_team, match.away_placeholder);
+    const isFinal = Number(match.match_number) === 104;
+    const label = isFinal ? "Gran Final" : "Tercer y cuarto puesto";
+    const icon = isFinal ? "🏆" : "🥉";
+
+    return `
+      <article class="final-overview-card">
+        <div class="final-overview-card-top">
+          <div>
+            <div class="final-overview-kicker">
+              ${icon} Partido ${escapeHtml(match.match_number || "")}
+            </div>
+            <h3>${escapeHtml(label)}</h3>
+            <p>${escapeHtml(home)} vs ${escapeHtml(away)}</p>
+          </div>
+
+          <div class="final-overview-count">
+            ${group.predictions.length}
+            <span>pronósticos</span>
+          </div>
+        </div>
+
+        ${renderFinalPredictionRows(match, group.predictions)}
+      </article>
+    `;
+  }
+
+  function injectFinalOverviewStyles() {
+    if (document.getElementById("finalPredictionsOverviewStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "finalPredictionsOverviewStyles";
+
+    style.textContent = `
+      .final-overview-panel {
+        display: grid;
+        gap: 22px;
+      }
+
+      .final-overview-header {
+        border: 1px solid rgba(255, 211, 77, 0.30);
+        border-radius: 28px;
+        padding: clamp(20px, 4vw, 34px);
+        background:
+          radial-gradient(circle at 16% 20%, rgba(255, 211, 77, 0.14), transparent 30%),
+          linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.98));
+        box-shadow: 0 18px 60px rgba(0,0,0,0.28);
+      }
+
+      .final-overview-header p {
+        margin: 0 0 8px;
+        color: #ffd34d;
+        font-weight: 1000;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .final-overview-header h2 {
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        line-height: 0.96;
+        letter-spacing: -0.05em;
+      }
+
+      .final-overview-header small {
+        display: block;
+        margin-top: 10px;
+        color: #aebbd3;
+        font-weight: 800;
+      }
+
+      .final-overview-card {
+        overflow: hidden;
+        border-radius: 26px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background:
+          radial-gradient(circle at 18% 16%, rgba(255, 211, 77, 0.10), transparent 32%),
+          linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(8, 13, 28, 0.98));
+        box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+      }
+
+      .final-overview-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .final-overview-kicker {
+        color: #ffd34d;
+        font-size: 0.78rem;
+        font-weight: 1000;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .final-overview-card h3 {
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(1.35rem, 3vw, 2rem);
+        letter-spacing: -0.04em;
+      }
+
+      .final-overview-card p {
+        margin: 6px 0 0;
+        color: #aebbd3;
+        font-weight: 800;
+      }
+
+      .final-overview-count {
+        min-width: 98px;
+        text-align: center;
+        color: #ffd34d;
+        font-size: 1.7rem;
+        font-weight: 1000;
+        border-radius: 20px;
+        padding: 10px 12px;
+        background: rgba(255, 211, 77, 0.10);
+        border: 1px solid rgba(255, 211, 77, 0.22);
+      }
+
+      .final-overview-count span {
+        display: block;
+        color: #aebbd3;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .final-overview-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      .final-overview-table {
+        width: 100%;
+        min-width: 780px;
+        border-collapse: collapse;
+      }
+
+      .final-overview-table th,
+      .final-overview-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.09);
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      .final-overview-table th {
+        color: #ffd34d;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+
+      .final-overview-table td {
+        color: #e9eef8;
+        font-weight: 800;
+      }
+
+      .final-overview-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .final-score-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 78px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.10);
+        color: #ffffff;
+        font-weight: 1000;
+      }
+
+      .final-mini-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 48px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 1000;
+      }
+
+      .final-mini-badge.yes {
+        background: rgba(34, 197, 94, 0.16);
+        color: #8cffb1;
+        border: 1px solid rgba(34, 197, 94, 0.28);
+      }
+
+      .final-mini-badge.no {
+        background: rgba(148, 163, 184, 0.12);
+        color: #aebbd3;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+      }
+
+      .final-points-pill {
+        color: #ffd34d;
+        font-weight: 1000;
+      }
+
+      .final-overview-empty {
+        padding: 18px 20px;
+        color: #aebbd3;
+        font-weight: 900;
+      }
+
+      @media (max-width: 640px) {
+        .final-overview-card-top {
+          flex-direction: column;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  async function renderFinalPredictionsOverview() {
+    if (!els.predictionsList) return;
+
+    injectFinalOverviewStyles();
+
+    els.predictionsList.innerHTML = `
+      <div class="final-overview-panel">
+        <div class="final-overview-header">
+          <p>Pronósticos guardados</p>
+          <h2>Final y tercer puesto</h2>
+          <small>Cargando resultados guardados de los partidos 103 y 104...</small>
+        </div>
+      </div>
+    `;
+
+    try {
+      const groups = await fetchFinalPredictionsRows();
+
+      if (!groups.length) {
+        els.predictionsList.innerHTML = `
+          <div class="final-overview-panel">
+            <div class="final-overview-header">
+              <p>Pronósticos guardados</p>
+              <h2>No encuentro los partidos 103 y 104</h2>
+              <small>Ejecuta el SQL de Supabase para crear la final y el tercer puesto.</small>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      els.predictionsList.innerHTML = `
+        <div class="final-overview-panel">
+          <div class="final-overview-header">
+            <p>Pronósticos guardados</p>
+            <h2>Final y tercer puesto</h2>
+            <small>
+              Aquí se ven los resultados guardados por cada usuario:
+              resultado, ganador, prórroga, penaltis y puntos.
+            </small>
+          </div>
+
+          ${groups.map(renderFinalPredictionsMatchCard).join("")}
+        </div>
+      `;
+    } catch (error) {
+      console.error(error);
+
+      els.predictionsList.innerHTML = `
+        <div class="final-overview-panel">
+          <div class="final-overview-header">
+            <p>Pronósticos guardados</p>
+            <h2>No se pudieron cargar</h2>
+            <small>Revisa que la tabla predictions permita lectura o usa la vista predictions_overview.</small>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  renderPredictionsOverview = function () {
+    renderFinalPredictionsOverview();
+  };
+
+  const refreshButton = document.getElementById("predictionsRefreshButton");
+
+  if (refreshButton && !refreshButton.dataset.finalOverviewPatched) {
+    refreshButton.dataset.finalOverviewPatched = "true";
+    refreshButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      renderFinalPredictionsOverview();
+    }, true);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderFinalPredictionsOverview);
+  } else {
+    renderFinalPredictionsOverview();
+  }
+
+  setTimeout(renderFinalPredictionsOverview, 1000);
+  setTimeout(renderFinalPredictionsOverview, 2200);
+})();
+
+
 init();
 
 function init() {
