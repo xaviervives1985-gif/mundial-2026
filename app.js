@@ -1390,20 +1390,118 @@ async function loadPredictions() {
 }
 
 async function loadLeaderboard() {
-  const { data, error } = await supabase
-    .from("leaderboard")
-    .select("*")
-    .order("total_points", { ascending: false })
-    .order("winners_hit", { ascending: false })
-    .order("exact_scores_hit", { ascending: false });
+  const [leaderboardResult, tournamentResult] = await Promise.all([
+    supabase
+      .from("leaderboard")
+      .select("*")
+      .order("total_points", { ascending: false })
+      .order("winners_hit", { ascending: false })
+      .order("exact_scores_hit", { ascending: false }),
 
-  if (error) {
-    console.error(error);
+    supabase
+      .from("tournament_predictions_overview")
+      .select(`
+        user_alias,
+        predicted_top_scorer,
+        predicted_best_player
+      `)
+  ]);
+
+  if (leaderboardResult.error) {
+    console.error(leaderboardResult.error);
     state.leaderboard = [];
     return;
   }
 
-  state.leaderboard = data || [];
+  if (tournamentResult.error) {
+    console.warn(
+      "No se pudieron cargar los bonus del torneo:",
+      tournamentResult.error
+    );
+  }
+
+  const normalizeText = (value) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  const bonusByAlias = new Map();
+  const aliasDisplayByKey = new Map();
+
+  (tournamentResult.data || []).forEach((prediction) => {
+    const aliasKey = normalizeAlias(prediction.user_alias || "");
+    if (!aliasKey) return;
+
+    const topScorer = normalizeText(prediction.predicted_top_scorer);
+    const bestPlayer = normalizeText(prediction.predicted_best_player);
+
+    let tournamentBonus = 0;
+
+    // Máximo goleador del Mundial: Kylian Mbappé (+10 puntos)
+    if (topScorer.includes("mbapp")) {
+      tournamentBonus += 10;
+    }
+
+    // Mejor jugador del Mundial: Rodri (+10 puntos)
+    if (
+      bestPlayer === "rodri" ||
+      bestPlayer.startsWith("rodri ") ||
+      bestPlayer.includes("rodrigo hernandez")
+    ) {
+      tournamentBonus += 10;
+    }
+
+    aliasDisplayByKey.set(
+      aliasKey,
+      String(prediction.user_alias || aliasKey).trim()
+    );
+
+    // Evita duplicar puntos si existen dos filas del mismo alias.
+    bonusByAlias.set(
+      aliasKey,
+      Math.max(bonusByAlias.get(aliasKey) || 0, tournamentBonus)
+    );
+  });
+
+  const leaderboardByAlias = new Map();
+
+  (leaderboardResult.data || []).forEach((row) => {
+    const aliasKey = normalizeAlias(row.alias || "");
+    const tournamentBonus = bonusByAlias.get(aliasKey) || 0;
+
+    leaderboardByAlias.set(aliasKey, {
+      ...row,
+      tournament_bonus: tournamentBonus,
+      match_points: Number(row.total_points || 0),
+      total_points: Number(row.total_points || 0) + tournamentBonus
+    });
+  });
+
+  // También muestra a un usuario que solo haya hecho el pronóstico del torneo.
+  bonusByAlias.forEach((tournamentBonus, aliasKey) => {
+    if (leaderboardByAlias.has(aliasKey)) return;
+
+    leaderboardByAlias.set(aliasKey, {
+      alias: aliasDisplayByKey.get(aliasKey) || aliasKey,
+      tournament_bonus: tournamentBonus,
+      match_points: 0,
+      total_points: tournamentBonus,
+      winners_hit: 0,
+      exact_scores_hit: 0,
+      extra_time_hit: 0,
+      penalties_hit: 0
+    });
+  });
+
+  state.leaderboard = Array.from(leaderboardByAlias.values())
+    .sort((a, b) =>
+      Number(b.total_points || 0) - Number(a.total_points || 0) ||
+      Number(b.winners_hit || 0) - Number(a.winners_hit || 0) ||
+      Number(b.exact_scores_hit || 0) - Number(a.exact_scores_hit || 0) ||
+      String(a.alias || "").localeCompare(String(b.alias || ""), "es")
+    );
 }
 
 
@@ -1786,7 +1884,14 @@ function renderLeaderboard() {
       <tr>
         <td>${index + 1}</td>
         <td><strong>${escapeHtml(row.alias)}</strong></td>
-        <td><strong>${row.total_points}</strong></td>
+        <td>
+          <strong>${row.total_points}</strong>
+          ${
+            Number(row.tournament_bonus || 0) > 0
+              ? `<small style="display:block; color:#ffd34d; font-weight:900; margin-top:3px;">+${row.tournament_bonus} bonus torneo</small>`
+              : ""
+          }
+        </td>
         <td>${row.winners_hit}</td>
         <td>${row.exact_scores_hit}</td>
         <td>${row.extra_time_hit}</td>
